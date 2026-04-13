@@ -17,26 +17,22 @@
           <p class="lead">残業した日の退勤時刻を記録すると、休憩時間を除いた残業を1分単位で集計します。</p>
         </header>
 
-        <section class="cloud-panel" aria-labelledby="cloud-heading">
-          <div class="cloud-heading-row">
-            <div>
-              <p class="section-kicker">保存先</p>
-              <h2 id="cloud-heading">クラウド保存</h2>
-            </div>
+        <section class="cloud-panel" aria-label="保存先">
+          <div class="cloud-compact-row">
+            <span class="cloud-label">保存先</span>
             <span class="cloud-pill" id="cloudState">確認中</span>
+            <button class="cloud-link" id="toggleAuth" type="button">ログイン</button>
+            <button class="cloud-link" id="syncCloud" type="button" hidden>同期</button>
+            <button class="cloud-link" id="signOut" type="button" hidden>ログアウト</button>
           </div>
-          <p class="small-note" id="cloudMessage">ログインするとSupabaseへ保存します。</p>
-          <form class="auth-form" id="authForm">
+          <form class="auth-form" id="authForm" hidden>
             <label>
               <span>メールアドレス</span>
               <input id="authEmail" name="authEmail" type="email" autocomplete="email" inputmode="email" placeholder="mail@example.com" required>
             </label>
             <button class="secondary-action" id="authSubmit" type="submit">ログインメールを送る</button>
           </form>
-          <div class="cloud-actions">
-            <button class="ghost-action" id="syncCloud" type="button" hidden>今すぐ同期</button>
-            <button class="ghost-action" id="signOut" type="button" hidden>ログアウト</button>
-          </div>
+          <p class="small-note cloud-message" id="cloudMessage" hidden>ログインするとSupabaseへ保存します。</p>
         </section>
 
         <section class="action-panel" aria-labelledby="record-heading">
@@ -108,7 +104,7 @@
               <p class="section-kicker">勤務日ベース</p>
               <h2 id="records-heading">この期間の記録</h2>
             </div>
-            <p class="small-note">行をタップして修正・削除</p>
+            <p class="small-note" id="recordsHint">行をタップして修正・削除</p>
           </div>
 
           <div class="chart-wrap" id="recordsChart" role="group" aria-label="この期間の残業時間グラフ"></div>
@@ -116,12 +112,13 @@
             <div class="trend-heading">
               <div>
                 <p class="section-kicker">月ごと</p>
-                <h3>半年の推移</h3>
+                <h3>1年の推移</h3>
               </div>
               <p class="small-note">棒をタップして期間を切り替え</p>
             </div>
-            <div class="trend-chart" id="trendChart" role="group" aria-label="半年分の月別残業時間"></div>
+            <div class="trend-chart" id="trendChart" role="group" aria-label="1年分の月別残業時間"></div>
           </div>
+          <p class="small-note records-mode-note" id="recordsModeNote"></p>
           <div class="records-list" id="recordsList"></div>
         </section>
       </div>

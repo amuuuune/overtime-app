@@ -5,6 +5,8 @@
   const SUPABASE_URL = "https://amijlzfjamcstxchwkud.supabase.co";
   const SUPABASE_PUBLISHABLE_KEY = "sb_publishable_oHGPXeQxwEjeK7HlF9gDZQ_HA39G8y0";
   const CLOUD_TABLE = "overtime_records";
+  const RETAINED_PERIODS = 12;
+  const EDITABLE_PERIODS = 2;
   const MORNING_CUTOFF_HOUR = 5;
   const OVERTIME_START_TIME = "17:00";
   const OVERTIME_START_HOUR = 17;
@@ -22,6 +24,7 @@
   let supabaseClient = null;
   let currentUser = null;
   let cloudBusy = false;
+  let authFormOpen = false;
   let elements = null;
 
   function pad2(value) {
@@ -216,6 +219,48 @@
     return toYmd(new Date(startDate.getFullYear(), startDate.getMonth() + months, 16));
   }
 
+  function getCurrentPeriodStart() {
+    return getPeriodForDate(toYmd(new Date())).start;
+  }
+
+  function getRetentionStart() {
+    return shiftPeriod(getCurrentPeriodStart(), -(RETAINED_PERIODS - 1));
+  }
+
+  function getEditableStart() {
+    return shiftPeriod(getCurrentPeriodStart(), -(EDITABLE_PERIODS - 1));
+  }
+
+  function clampPeriodStart(start) {
+    const minStart = getRetentionStart();
+    const maxStart = getCurrentPeriodStart();
+    if (!start || start < minStart) {
+      return minStart;
+    }
+    if (start > maxStart) {
+      return maxStart;
+    }
+    return start;
+  }
+
+  function canEditPeriod(start) {
+    return start >= getEditableStart() && start <= getCurrentPeriodStart();
+  }
+
+  function canEditWorkDate(workDate) {
+    return canEditPeriod(getPeriodForDate(workDate).start);
+  }
+
+  function getRetentionEnd() {
+    return getPeriodFromStart(getCurrentPeriodStart()).end;
+  }
+
+  function pruneRecordsByRetention(recordSet) {
+    const retentionStart = getRetentionStart();
+    const retentionEnd = getRetentionEnd();
+    return recordSet.filter((record) => record.workDate >= retentionStart && record.workDate <= retentionEnd);
+  }
+
   function loadRecords() {
     try {
       const raw = window.localStorage.getItem(STORAGE_KEY);
@@ -223,7 +268,7 @@
       if (!Array.isArray(parsed)) {
         return [];
       }
-      return parsed
+      return pruneRecordsByRetention(parsed
         .filter((record) => record && record.workDate && record.clockOutAt)
         .map((record) => {
           const clockOut = new Date(record.clockOutAt);
@@ -236,7 +281,7 @@
           };
         })
         .filter((record) => !Number.isNaN(new Date(record.clockOutAt).getTime()))
-        .sort((a, b) => a.workDate.localeCompare(b.workDate));
+        .sort((a, b) => a.workDate.localeCompare(b.workDate)));
     } catch (error) {
       return [];
     }
@@ -294,6 +339,7 @@
     if (!elements) {
       return;
     }
+    elements.toggleAuth.disabled = cloudBusy;
     elements.authSubmit.disabled = cloudBusy;
     elements.syncCloud.disabled = cloudBusy;
     elements.signOut.disabled = cloudBusy;
@@ -304,18 +350,17 @@
       return;
     }
     const signedIn = isCloudSignedIn();
-    elements.authForm.hidden = signedIn || !supabaseClient;
+    elements.authForm.hidden = signedIn || !supabaseClient || !authFormOpen;
+    elements.toggleAuth.hidden = signedIn;
+    elements.toggleAuth.textContent = authFormOpen ? "閉じる" : "ログイン";
     elements.syncCloud.hidden = !signedIn;
     elements.signOut.hidden = !signedIn;
     elements.cloudState.textContent = signedIn ? "クラウド" : "端末保存";
     if (signedIn && currentUser.email) {
       elements.authEmail.value = currentUser.email;
     }
-    elements.cloudMessage.textContent =
-      message ||
-      (signedIn
-        ? `${currentUser.email || "ログイン中"} の記録としてSupabaseへ保存します。`
-        : "ログインするとSupabaseへ保存します。未ログイン中はこの端末に保存します。");
+    elements.cloudMessage.hidden = !message;
+    elements.cloudMessage.textContent = message || "";
   }
 
   function cloudErrorMessage(action, error) {
@@ -364,9 +409,23 @@
     setCloudBusy(true);
     renderCloudUi("Supabaseと同期中です。");
     try {
+      const retentionStart = getRetentionStart();
+      const retentionEnd = getRetentionEnd();
+      const { error: pruneError } = await supabaseClient
+        .from(CLOUD_TABLE)
+        .delete()
+        .eq("user_id", currentUser.id)
+        .lt("work_date", retentionStart);
+      if (pruneError) {
+        renderCloudUi(cloudErrorMessage("古いクラウド記録の削除", pruneError));
+        return false;
+      }
+
       const { data, error } = await supabaseClient
         .from(CLOUD_TABLE)
         .select("work_date, clock_out_at, overtime_minutes, updated_at")
+        .gte("work_date", retentionStart)
+        .lte("work_date", retentionEnd)
         .order("work_date", { ascending: true });
       if (error) {
         renderCloudUi(cloudErrorMessage("クラウド読み込み", error));
@@ -376,7 +435,7 @@
       const cloudRecords = (data || [])
         .map(fromCloudRecord)
         .filter((record) => !Number.isNaN(new Date(record.clockOutAt).getTime()));
-      records = mergeRecordsByDate(records, cloudRecords);
+      records = pruneRecordsByRetention(mergeRecordsByDate(records, cloudRecords));
       persistRecords();
 
       if (records.length > 0) {
@@ -391,7 +450,7 @@
       }
 
       render();
-      renderCloudUi(`${currentUser.email || "ログイン中"} と同期済みです。`);
+      renderCloudUi();
       return true;
     } finally {
       setCloudBusy(false);
@@ -401,9 +460,11 @@
   async function applySession(session) {
     currentUser = session && session.user ? session.user : null;
     if (!currentUser) {
-      renderCloudUi("ログインするとSupabaseへ保存します。未ログイン中はこの端末に保存します。");
+      authFormOpen = false;
+      renderCloudUi();
       return;
     }
+    authFormOpen = false;
     renderCloudUi(`${currentUser.email || "ログイン中"} でログインしました。同期します。`);
     await syncCloudRecords();
   }
@@ -420,7 +481,7 @@
         detectSessionInUrl: true,
       },
     });
-    renderCloudUi("ログイン状態を確認中です。");
+    renderCloudUi();
 
     const { data, error } = await supabaseClient.auth.getSession();
     if (error) {
@@ -469,6 +530,14 @@
   }
 
   async function saveRecord(workDate, clockOut, options = {}) {
+    if (workDate < getRetentionStart() || workDate > getRetentionEnd()) {
+      setStatus("保存できるのは直近1年分までです。");
+      return false;
+    }
+    if (!canEditWorkDate(workDate)) {
+      setStatus("この期間は確定済みのため、修正できません。");
+      return false;
+    }
     if (!shouldOverwrite(workDate, options.skipConfirm)) {
       setStatus("上書きを取り消しました。");
       return false;
@@ -487,6 +556,7 @@
       .filter((record) => record.workDate !== workDate)
       .concat(nextRecord)
       .sort((a, b) => a.workDate.localeCompare(b.workDate));
+    records = pruneRecordsByRetention(records);
     persistRecords();
     periodStart = getPeriodForDate(workDate).start;
     render();
@@ -507,6 +577,10 @@
   async function deleteRecord(workDate) {
     const record = getRecordForDate(workDate);
     if (!record) {
+      return false;
+    }
+    if (!canEditWorkDate(workDate)) {
+      setStatus("この期間は確定済みのため、削除できません。");
       return false;
     }
     if (!window.confirm(`${formatDateWithWeekday(workDate)} の記録を削除しますか？`)) {
@@ -536,8 +610,9 @@
 
   function getTrendPeriods() {
     const periods = [];
-    for (let offset = 5; offset >= 0; offset -= 1) {
-      const start = shiftPeriod(periodStart, -offset);
+    const currentStart = getCurrentPeriodStart();
+    for (let offset = RETAINED_PERIODS - 1; offset >= 0; offset -= 1) {
+      const start = shiftPeriod(currentStart, -offset);
       const period = getPeriodFromStart(start);
       const periodRecords = getRecordsForPeriod(start);
       periods.push({
@@ -564,6 +639,7 @@
   function renderChart(periodRecords) {
     elements.recordsChart.replaceChildren();
     elements.recordsChart.hidden = false;
+    const periodEditable = canEditPeriod(periodStart);
     const recordMap = new Map(periodRecords.map((record) => [record.workDate, record]));
     const dayEntries = getPeriodDays(periodStart).map((workDate) => {
       const record = recordMap.get(workDate) || null;
@@ -579,19 +655,22 @@
     scroll.style.setProperty("--period-days", String(dayEntries.length));
 
     for (const entry of dayEntries) {
-      const bar = document.createElement(entry.record ? "button" : "span");
+      const bar = document.createElement(entry.record && periodEditable ? "button" : "span");
       const height = entry.overtimeMinutes > 0 ? Math.max(3, Math.round((entry.overtimeMinutes / maxMinutes) * 100)) : 0;
       bar.className = `chart-bar ${entry.record ? "has-record" : "is-missing"} ${entry.overtimeMinutes === 0 ? "is-zero" : ""}`;
-      if (entry.record) {
+      if (entry.record && periodEditable) {
         bar.type = "button";
         bar.setAttribute("aria-label", `${formatDateWithWeekday(entry.workDate)} ${formatMinutes(entry.overtimeMinutes)}`);
         bar.title = `${formatDateWithWeekday(entry.workDate)} ${formatMinutes(entry.overtimeMinutes)}`;
         bar.addEventListener("click", () => {
           showDetail(entry.workDate);
         });
-      } else {
+      } else if (!entry.record) {
         bar.setAttribute("aria-label", `${formatDateWithWeekday(entry.workDate)} 未打刻`);
         bar.title = `${formatDateWithWeekday(entry.workDate)} 未打刻`;
+      } else {
+        bar.setAttribute("aria-label", `${formatDateWithWeekday(entry.workDate)} ${formatMinutes(entry.overtimeMinutes)} 確定済み`);
+        bar.title = `${formatDateWithWeekday(entry.workDate)} ${formatMinutes(entry.overtimeMinutes)} 確定済み`;
       }
 
       const track = document.createElement("span");
@@ -613,7 +692,9 @@
 
     const note = document.createElement("p");
     note.className = "chart-note";
-    note.textContent = "記録済みの日は棒をタップすると詳細を確認できます。";
+    note.textContent = periodEditable
+      ? "記録済みの日は棒をタップすると詳細を確認できます。"
+      : "この期間は確定済みのため、修正用のタップ操作はありません。";
     elements.recordsChart.append(scroll, note);
   }
 
@@ -648,7 +729,7 @@
 
       const label = document.createElement("span");
       label.className = "trend-label";
-      label.textContent = formatShortDate(period.start);
+      label.textContent = `${parseYmd(period.start).getMonth() + 1}月`;
 
       bar.append(total, track, label);
       fragment.append(bar);
@@ -658,6 +739,16 @@
 
   function renderRecordsList(periodRecords) {
     elements.recordsList.replaceChildren();
+    const periodEditable = canEditPeriod(periodStart);
+    elements.recordsModeNote.hidden = periodEditable;
+    elements.recordsModeNote.textContent = periodEditable
+      ? ""
+      : "2カ月前になった期間は確定済みとして、一覧と修正・削除を表示しません。";
+    elements.recordsHint.textContent = periodEditable ? "行をタップして修正・削除" : "確定済み";
+    elements.recordsList.hidden = !periodEditable;
+    if (!periodEditable) {
+      return;
+    }
     if (periodRecords.length === 0) {
       const empty = document.createElement("div");
       empty.className = "empty-state";
@@ -674,6 +765,7 @@
   }
 
   function render() {
+    periodStart = clampPeriodStart(periodStart);
     const period = getPeriodFromStart(periodStart);
     const periodRecords = getPeriodRecords();
     const overtimeRecords = periodRecords.filter((record) => record.overtimeMinutes > 0);
@@ -684,6 +776,8 @@
     elements.totalOvertime.textContent = formatMinutes(total);
     elements.recordCount.textContent = `${overtimeRecords.length}日`;
     elements.averageOvertime.textContent = formatMinutes(average);
+    elements.prevPeriod.disabled = periodStart <= getRetentionStart();
+    elements.nextPeriod.disabled = periodStart >= getCurrentPeriodStart();
     renderTrendChart();
     renderChart(periodRecords);
     renderRecordsList(periodRecords);
@@ -702,6 +796,10 @@
   }
 
   function showDetail(workDate) {
+    if (!canEditWorkDate(workDate)) {
+      setStatus("この期間は確定済みのため、詳細修正画面は表示しません。");
+      return;
+    }
     selectedWorkDate = workDate;
     const record = getRecordForDate(workDate);
     if (!record) {
@@ -721,6 +819,11 @@
     const record = getRecordForDate(selectedWorkDate);
     if (!record) {
       showHome();
+      return;
+    }
+    if (!canEditWorkDate(record.workDate)) {
+      setStatus("この期間は確定済みのため、修正できません。");
+      showHome({ restoreScroll: true });
       return;
     }
     setFormFromClockOut(record.workDate, new Date(record.clockOutAt));
@@ -802,6 +905,9 @@
           shouldCreateUser: true,
         },
       });
+      if (!error) {
+        authFormOpen = false;
+      }
       renderCloudUi(
         error
           ? cloudErrorMessage("ログインメール送信", error)
@@ -824,15 +930,25 @@
         return;
       }
       currentUser = null;
+      authFormOpen = false;
       renderCloudUi("ログアウトしました。未ログイン中はこの端末に保存します。");
     } finally {
       setCloudBusy(false);
     }
   }
 
+  function toggleAuthForm() {
+    authFormOpen = !authFormOpen;
+    renderCloudUi(authFormOpen ? "メールのリンクを同じスマホで開くとログインできます。" : "");
+    if (authFormOpen) {
+      elements.authEmail.focus({ preventScroll: true });
+    }
+  }
+
   function wireEvents() {
     elements.clockOutNow.addEventListener("click", handleClockOutNow);
     elements.recordForm.addEventListener("submit", handleManualSubmit);
+    elements.toggleAuth.addEventListener("click", toggleAuthForm);
     elements.authForm.addEventListener("submit", handleAuthSubmit);
     elements.syncCloud.addEventListener("click", syncCloudRecords);
     elements.signOut.addEventListener("click", handleSignOut);
@@ -843,16 +959,16 @@
     elements.deleteSelectedRecord.addEventListener("click", deleteSelectedRecord);
     elements.cancelEdit.addEventListener("click", cancelEdit);
     elements.prevPeriod.addEventListener("click", () => {
-      periodStart = shiftPeriod(periodStart, -1);
+      periodStart = clampPeriodStart(shiftPeriod(periodStart, -1));
       render();
     });
     elements.nextPeriod.addEventListener("click", () => {
-      periodStart = shiftPeriod(periodStart, 1);
+      periodStart = clampPeriodStart(shiftPeriod(periodStart, 1));
       render();
     });
     elements.workDate.addEventListener("change", () => {
       if (elements.workDate.value) {
-        periodStart = getPeriodForDate(elements.workDate.value).start;
+        periodStart = clampPeriodStart(getPeriodForDate(elements.workDate.value).start);
         render();
       }
     });
@@ -864,6 +980,7 @@
       detailView: document.getElementById("detailView"),
       cloudState: document.getElementById("cloudState"),
       cloudMessage: document.getElementById("cloudMessage"),
+      toggleAuth: document.getElementById("toggleAuth"),
       authForm: document.getElementById("authForm"),
       authEmail: document.getElementById("authEmail"),
       authSubmit: document.getElementById("authSubmit"),
@@ -884,6 +1001,8 @@
       averageOvertime: document.getElementById("averageOvertime"),
       trendChart: document.getElementById("trendChart"),
       recordsChart: document.getElementById("recordsChart"),
+      recordsHint: document.getElementById("recordsHint"),
+      recordsModeNote: document.getElementById("recordsModeNote"),
       recordsList: document.getElementById("recordsList"),
       recordItemTemplate: document.getElementById("recordItemTemplate"),
       backToList: document.getElementById("backToList"),
@@ -896,8 +1015,9 @@
     };
 
     records = loadRecords();
+    persistRecords();
     setDefaultFormNow();
-    periodStart = getPeriodForDate(elements.workDate.value).start;
+    periodStart = clampPeriodStart(getPeriodForDate(elements.workDate.value).start);
     wireEvents();
     render();
     initCloud();

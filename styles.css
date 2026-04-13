@@ -119,14 +119,22 @@ h3 {
 
 .cloud-panel {
   display: grid;
-  gap: 14px;
+  gap: 10px;
+  padding-block: 10px;
 }
 
-.cloud-heading-row {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
-  gap: 10px;
-  align-items: end;
+.cloud-compact-row {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  min-width: 0;
+}
+
+.cloud-label {
+  color: var(--muted);
+  font-size: 0.78rem;
+  font-weight: 800;
+  white-space: nowrap;
 }
 
 .cloud-pill {
@@ -134,14 +142,29 @@ h3 {
   border-radius: 8px;
   background: var(--surface-strong);
   color: var(--ink);
-  padding: 5px 8px;
+  padding: 4px 7px;
   font-size: 0.72rem;
   font-weight: 800;
   white-space: nowrap;
 }
 
-.auth-form,
-.cloud-actions {
+.cloud-link {
+  min-height: 32px;
+  margin-left: auto;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #ffffff;
+  color: var(--ink);
+  padding: 5px 9px;
+  font-size: 0.78rem;
+  font-weight: 800;
+}
+
+.cloud-link + .cloud-link {
+  margin-left: 0;
+}
+
+.auth-form {
   display: grid;
   gap: 10px;
 }
@@ -164,6 +187,10 @@ h3 {
   padding: 9px 12px;
   font-size: 1rem;
   font-weight: 600;
+}
+
+.cloud-message {
+  margin-top: -2px;
 }
 
 .action-panel {
@@ -341,9 +368,9 @@ h3 {
 
 .trend-chart {
   display: grid;
-  grid-template-columns: repeat(6, minmax(0, 1fr));
+  grid-template-columns: repeat(12, minmax(0, 1fr));
   align-items: end;
-  gap: 6px;
+  gap: 3px;
   margin-top: 12px;
   min-height: 158px;
   padding: 8px 0 6px;
@@ -361,7 +388,7 @@ h3 {
   border-radius: 8px;
   background: transparent;
   color: var(--ink);
-  padding: 4px 2px 0;
+  padding: 4px 1px 0;
 }
 
 .trend-bar.is-current {
@@ -371,7 +398,7 @@ h3 {
 
 .trend-label {
   color: var(--muted);
-  font-size: 0.7rem;
+  font-size: 0.58rem;
   font-weight: 800;
   white-space: nowrap;
 }
@@ -380,7 +407,7 @@ h3 {
   display: flex;
   align-items: end;
   width: 100%;
-  max-width: 18px;
+  max-width: 12px;
   height: 100%;
   overflow: hidden;
   border-radius: 8px;
@@ -404,11 +431,15 @@ h3 {
   justify-content: center;
   min-height: 2.4em;
   min-width: 0;
-  font-size: 0.68rem;
+  font-size: 0.56rem;
   font-weight: 900;
   line-height: 1.2;
   text-align: center;
   overflow-wrap: anywhere;
+}
+
+.records-mode-note {
+  margin-top: 12px;
 }
 
 .records-panel {
@@ -601,10 +632,6 @@ h3 {
   .auth-form {
     grid-template-columns: minmax(0, 1fr) auto;
     align-items: end;
-  }
-
-  .cloud-actions {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
   .manual-form {
