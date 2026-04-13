@@ -15,6 +15,7 @@
   let periodStart = "";
   let selectedWorkDate = "";
   let editingWorkDate = "";
+  let detailReturnScrollY = 0;
   let elements = null;
 
   function pad2(value) {
@@ -149,10 +150,6 @@
     const startDate = parseYmd(start);
     const endDate = parseYmd(end);
     return `${startDate.getFullYear()}/${startDate.getMonth() + 1}/${startDate.getDate()} - ${endDate.getFullYear()}/${endDate.getMonth() + 1}/${endDate.getDate()}`;
-  }
-
-  function formatPeriodShort(start, end) {
-    return `${formatShortDate(start)}〜${formatShortDate(end)}`;
   }
 
   function formatClockOut(record) {
@@ -419,33 +416,34 @@
 
     elements.trendChart.replaceChildren();
     for (const period of periods) {
-      const row = document.createElement("button");
-      const width = period.total > 0 ? Math.max(4, Math.round((period.total / maxTotal) * 100)) : 0;
-      row.className = period.start === periodStart ? "trend-row is-current" : "trend-row";
-      row.type = "button";
-      row.setAttribute("aria-label", `${formatPeriod(period.start, period.end)} ${formatMinutes(period.total)}`);
-      row.addEventListener("click", () => {
+      const bar = document.createElement("button");
+      const height = period.total > 0 ? Math.max(4, Math.round((period.total / maxTotal) * 100)) : 0;
+      bar.className = `trend-bar ${period.start === periodStart ? "is-current" : ""} ${period.total === 0 ? "is-zero" : ""}`;
+      bar.type = "button";
+      bar.setAttribute("aria-label", `${formatPeriod(period.start, period.end)} ${formatMinutes(period.total)}`);
+      bar.title = `${formatPeriod(period.start, period.end)} ${formatMinutes(period.total)}`;
+      bar.addEventListener("click", () => {
         periodStart = period.start;
         render();
       });
-
-      const label = document.createElement("span");
-      label.className = "trend-label";
-      label.textContent = formatPeriodShort(period.start, period.end);
-
-      const track = document.createElement("span");
-      track.className = "trend-track";
-      const fill = document.createElement("span");
-      fill.className = "trend-fill";
-      fill.style.width = `${width}%`;
-      track.append(fill);
 
       const total = document.createElement("span");
       total.className = "trend-total";
       total.textContent = formatMinutes(period.total);
 
-      row.append(label, track, total);
-      fragment.append(row);
+      const track = document.createElement("span");
+      track.className = "trend-track";
+      const fill = document.createElement("span");
+      fill.className = "trend-fill";
+      fill.style.height = `${height}%`;
+      track.append(fill);
+
+      const label = document.createElement("span");
+      label.className = "trend-label";
+      label.textContent = formatShortDate(period.start);
+
+      bar.append(total, track, label);
+      fragment.append(bar);
     }
     elements.trendChart.append(fragment);
   }
@@ -486,10 +484,13 @@
     }
   }
 
-  function showHome() {
+  function showHome(options = {}) {
+    const scrollY = options.restoreScroll ? detailReturnScrollY : 0;
     elements.detailView.hidden = true;
     elements.homeView.hidden = false;
-    window.scrollTo({ top: 0, behavior: "smooth" });
+    window.requestAnimationFrame(() => {
+      window.scrollTo({ top: scrollY, behavior: options.restoreScroll ? "auto" : "smooth" });
+    });
   }
 
   function showDetail(workDate) {
@@ -502,6 +503,7 @@
     elements.detailClockOut.textContent = formatClockOut(record);
     elements.detailOvertime.textContent = formatMinutes(record.overtimeMinutes);
     elements.detailUpdated.textContent = formatTimestamp(record.updatedAt);
+    detailReturnScrollY = window.scrollY;
     elements.homeView.hidden = true;
     elements.detailView.hidden = false;
     window.scrollTo({ top: 0, behavior: "smooth" });
@@ -531,7 +533,7 @@
     if (deleteRecord(selectedWorkDate)) {
       selectedWorkDate = "";
       setEditingMode("");
-      showHome();
+      showHome({ restoreScroll: true });
     }
   }
 
@@ -572,7 +574,9 @@
   function wireEvents() {
     elements.clockOutNow.addEventListener("click", handleClockOutNow);
     elements.recordForm.addEventListener("submit", handleManualSubmit);
-    elements.backToList.addEventListener("click", showHome);
+    elements.backToList.addEventListener("click", () => {
+      showHome({ restoreScroll: true });
+    });
     elements.editSelectedRecord.addEventListener("click", editSelectedRecord);
     elements.deleteSelectedRecord.addEventListener("click", deleteSelectedRecord);
     elements.cancelEdit.addEventListener("click", cancelEdit);
