@@ -134,6 +134,12 @@
     return `${date.getMonth() + 1}/${date.getDate()}`;
   }
 
+  function shouldShowChartDateLabel(workDate, hasRecord) {
+    const date = parseYmd(workDate);
+    const day = date.getDate();
+    return hasRecord || day === 1 || day === 5 || day === 10 || day === 15 || day === 16 || day === 20 || day === 25;
+  }
+
   function formatDateWithWeekday(value) {
     const date = parseYmd(value);
     return `${date.getMonth() + 1}月${date.getDate()}日（${WEEKDAYS[date.getDay()]}）`;
@@ -258,6 +264,7 @@
   function setDefaultFormNow() {
     const now = truncateToMinute(new Date());
     setFormFromClockOut(getSuggestedWorkDate(now), now);
+    elements.regularClockOut.checked = false;
   }
 
   function shouldOverwrite(workDate, skipConfirm) {
@@ -364,6 +371,7 @@
     const maxMinutes = Math.max(...dayEntries.map((entry) => entry.overtimeMinutes), 1);
     const scroll = document.createElement("div");
     scroll.className = "chart-scroll";
+    scroll.style.setProperty("--period-days", String(dayEntries.length));
 
     for (const entry of dayEntries) {
       const bar = document.createElement(entry.record ? "button" : "span");
@@ -390,7 +398,9 @@
 
       const label = document.createElement("span");
       label.className = "bar-label";
-      label.textContent = formatShortDate(entry.workDate);
+      label.textContent = shouldShowChartDateLabel(entry.workDate, Boolean(entry.record))
+        ? String(parseYmd(entry.workDate).getDate())
+        : "";
 
       bar.append(track, label);
       scroll.append(bar);
@@ -400,9 +410,6 @@
     note.className = "chart-note";
     note.textContent = "記録済みの日は棒をタップすると詳細を確認できます。";
     elements.recordsChart.append(scroll, note);
-    window.requestAnimationFrame(() => {
-      scroll.scrollLeft = scroll.scrollWidth;
-    });
   }
 
   function renderTrendChart() {
@@ -507,6 +514,7 @@
       return;
     }
     setFormFromClockOut(record.workDate, new Date(record.clockOutAt));
+    elements.regularClockOut.checked = record.overtimeMinutes === 0;
     setEditingMode(record.workDate);
     showHome();
     setStatus(`${formatDateWithWeekday(record.workDate)}を修正中です。`);
@@ -547,14 +555,18 @@
     event.preventDefault();
     const workDate = elements.workDate.value;
     const clockOutTime = elements.clockOutTime.value;
-    const clockOut = combineWorkDateTime(workDate, clockOutTime, isBeforeOvertimeStart(clockOutTime));
+    const clockOut = elements.regularClockOut.checked
+      ? combineWorkDateTime(workDate, OVERTIME_START_TIME, false)
+      : combineWorkDateTime(workDate, clockOutTime, isBeforeOvertimeStart(clockOutTime));
 
     if (Number.isNaN(clockOut.getTime())) {
       setStatus("勤務日と退勤時刻を入力してください。");
       return;
     }
 
-    saveRecord(workDate, clockOut, { skipConfirm: editingWorkDate === workDate });
+    if (saveRecord(workDate, clockOut, { skipConfirm: editingWorkDate === workDate })) {
+      elements.regularClockOut.checked = false;
+    }
   }
 
   function wireEvents() {

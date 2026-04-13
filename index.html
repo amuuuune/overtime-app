@@ -18,19 +18,18 @@
         </header>
 
         <section class="action-panel" aria-labelledby="record-heading">
-          <div>
+          <div class="record-title-row">
             <p class="section-kicker">今日の記録</p>
             <h2 id="record-heading">退勤</h2>
+            <label class="checkbox-line">
+              <input id="regularClockOut" name="regularClockOut" type="checkbox">
+              <span>定時扱い</span>
+            </label>
           </div>
 
           <button class="primary-action" id="clockOutNow" type="button">
             退勤打刻
           </button>
-
-          <label class="checkbox-line">
-            <input id="regularClockOut" name="regularClockOut" type="checkbox">
-            <span>定時扱い（残業0分）</span>
-          </label>
 
           <form class="manual-form" id="recordForm">
             <label>
@@ -78,17 +77,6 @@
             </div>
           </div>
 
-          <div class="trend-block">
-            <div class="trend-heading">
-              <div>
-                <p class="section-kicker">月ごと</p>
-                <h3>半年の推移</h3>
-              </div>
-              <p class="small-note">行をタップして期間を切り替え</p>
-            </div>
-            <div class="trend-chart" id="trendChart" role="group" aria-label="半年分の月別残業時間"></div>
-          </div>
-
           <p class="small-note center">平均は打刻した日数で計算します。未打刻日は休日扱いです。</p>
         </section>
 
@@ -102,6 +90,16 @@
           </div>
 
           <div class="chart-wrap" id="recordsChart" role="group" aria-label="この期間の残業時間グラフ"></div>
+          <div class="trend-block">
+            <div class="trend-heading">
+              <div>
+                <p class="section-kicker">月ごと</p>
+                <h3>半年の推移</h3>
+              </div>
+              <p class="small-note">行をタップして期間を切り替え</p>
+            </div>
+            <div class="trend-chart" id="trendChart" role="group" aria-label="半年分の月別残業時間"></div>
+          </div>
           <div class="records-list" id="recordsList"></div>
         </section>
       </div>
