@@ -44,6 +44,10 @@ input:focus-visible {
   outline-offset: 2px;
 }
 
+[hidden] {
+  display: none !important;
+}
+
 .app-shell {
   margin: 0 auto;
   max-width: 720px;
@@ -108,7 +112,7 @@ h2 {
 .primary-action,
 .secondary-action,
 .ghost-action,
-.mini-action {
+.danger-action {
   min-height: 44px;
   border-radius: 8px;
   padding: 11px 14px;
@@ -134,10 +138,16 @@ h2 {
 }
 
 .ghost-action,
-.mini-action {
+.danger-action {
   border: 1px solid var(--line);
   background: #ffffff;
   color: var(--ink);
+}
+
+.danger-action {
+  border-color: color-mix(in srgb, var(--warning) 55%, var(--line));
+  color: var(--warning);
+  font-weight: 800;
 }
 
 .manual-form {
@@ -236,57 +246,109 @@ h2 {
 
 .records-list {
   display: grid;
-  gap: 10px;
+  gap: 6px;
   margin-top: 16px;
 }
 
-.record-item {
+.chart-wrap {
+  margin-top: 16px;
+}
+
+.chart-scroll {
+  display: flex;
+  align-items: end;
+  gap: 8px;
+  min-height: 156px;
+  overflow-x: auto;
+  overscroll-behavior-x: contain;
+  padding: 12px 4px 6px;
+  border-bottom: 1px solid var(--line);
+}
+
+.chart-bar {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
-  gap: 12px;
+  grid-template-rows: 1fr auto;
+  gap: 7px;
+  justify-items: center;
+  min-width: 28px;
+  height: 132px;
+  color: var(--muted);
+  font-size: 0.72rem;
+  letter-spacing: 0;
+  border: 0;
+  background: transparent;
+  padding: 0;
+}
+
+.bar-track {
+  display: flex;
+  align-items: end;
+  width: 12px;
+  height: 100%;
+  border-radius: 8px;
+  background: #eef1f4;
+  overflow: hidden;
+}
+
+.bar-fill {
+  width: 100%;
+  min-height: 3px;
+  border-radius: 8px 8px 0 0;
+  background: var(--accent);
+}
+
+.bar-label {
+  white-space: nowrap;
+}
+
+.chart-note {
+  margin: 8px 0 0;
+  color: var(--muted);
+  font-size: 0.78rem;
+}
+
+.record-row {
+  display: grid;
+  grid-template-columns: minmax(70px, 1fr) minmax(58px, auto) minmax(64px, auto) auto;
+  gap: 8px;
   align-items: center;
-  min-height: 86px;
-  padding: 14px;
+  min-height: 46px;
+  width: 100%;
+  padding: 10px 12px;
   border: 1px solid var(--line);
   border-radius: 8px;
   background: #ffffff;
+  color: var(--ink);
+  text-align: left;
 }
 
 .record-main {
   min-width: 0;
 }
 
-.record-date,
-.record-time {
-  margin: 0;
-}
-
 .record-date {
+  min-width: 0;
   font-weight: 800;
 }
 
 .record-time {
-  margin-top: 3px;
   color: var(--muted);
-  font-size: 0.92rem;
+  font-size: 0.85rem;
+  white-space: nowrap;
 }
 
 .record-total {
-  min-width: 76px;
+  min-width: 0;
   text-align: right;
   font-weight: 900;
+  white-space: nowrap;
 }
 
-.record-actions {
-  display: grid;
-  grid-column: 1 / -1;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 8px;
-}
-
-.delete-record {
-  border-color: color-mix(in srgb, var(--warning) 55%, var(--line));
-  color: var(--warning);
+.record-open {
+  color: var(--muted);
+  font-size: 0.78rem;
+  font-weight: 700;
+  white-space: nowrap;
 }
 
 .empty-state {
@@ -298,6 +360,48 @@ h2 {
   color: var(--muted);
   text-align: center;
   padding: 18px;
+}
+
+.detail-view {
+  min-height: 100vh;
+  padding: max(28px, env(safe-area-inset-top)) 18px 24px;
+}
+
+.back-action {
+  margin-bottom: 22px;
+}
+
+.detail-grid {
+  display: grid;
+  gap: 10px;
+  margin: 22px 0 0;
+}
+
+.detail-grid div {
+  display: grid;
+  grid-template-columns: minmax(74px, auto) minmax(0, 1fr);
+  gap: 12px;
+  align-items: center;
+  min-height: 48px;
+  border-bottom: 1px solid var(--line);
+}
+
+.detail-grid dt {
+  color: var(--muted);
+  font-size: 0.86rem;
+  font-weight: 700;
+}
+
+.detail-grid dd {
+  margin: 0;
+  font-weight: 800;
+  overflow-wrap: anywhere;
+}
+
+.detail-actions {
+  display: grid;
+  gap: 10px;
+  margin-top: 28px;
 }
 
 @media (min-width: 560px) {
@@ -339,11 +443,15 @@ h2 {
     align-items: end;
   }
 
-  .record-item {
-    grid-template-columns: minmax(0, 1fr) minmax(86px, auto) 148px;
+  .record-row {
+    grid-template-columns: minmax(120px, 1fr) minmax(86px, auto) minmax(86px, auto) auto;
   }
 
-  .record-actions {
-    grid-column: auto;
+  .detail-view {
+    padding-inline: 28px;
+  }
+
+  .detail-actions {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }

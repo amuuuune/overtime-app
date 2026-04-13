@@ -10,94 +10,117 @@
   </head>
   <body>
     <main class="app-shell">
-      <header class="topbar">
-        <p class="eyebrow">16日から翌15日まで</p>
-        <h1>残業時間</h1>
-        <p class="lead">残業した日の退勤時刻を記録すると、休憩時間を除いた残業を1分単位で集計します。</p>
-      </header>
+      <div id="homeView">
+        <header class="topbar">
+          <p class="eyebrow">16日から翌15日まで</p>
+          <h1>残業時間</h1>
+          <p class="lead">残業した日の退勤時刻を記録すると、休憩時間を除いた残業を1分単位で集計します。</p>
+        </header>
 
-      <section class="action-panel" aria-labelledby="record-heading">
-        <div>
-          <p class="section-kicker">今日の記録</p>
-          <h2 id="record-heading">退勤</h2>
+        <section class="action-panel" aria-labelledby="record-heading">
+          <div>
+            <p class="section-kicker">今日の記録</p>
+            <h2 id="record-heading">退勤</h2>
+          </div>
+
+          <button class="primary-action" id="clockOutNow" type="button">
+            退勤打刻
+          </button>
+
+          <form class="manual-form" id="recordForm">
+            <label>
+              <span>勤務日</span>
+              <input id="workDate" name="workDate" type="date" required>
+            </label>
+
+            <label>
+              <span>退勤時刻</span>
+              <input id="clockOutTime" name="clockOutTime" type="time" required>
+            </label>
+
+            <p class="input-hint">0:00〜16:59の手入力は、選んだ勤務日の残業終了時刻として集計します。</p>
+
+            <button class="secondary-action" type="submit">手入力で退勤打刻</button>
+          </form>
+
+          <p class="status-line" id="statusMessage" role="status" aria-live="polite"></p>
+          <p class="small-note">残業した日だけ記録します。記録はこの端末のブラウザに保存されます。</p>
+        </section>
+
+        <section class="summary-panel" aria-labelledby="summary-heading">
+          <div class="period-row">
+            <button class="ghost-action" id="prevPeriod" type="button">前の期間</button>
+            <div>
+              <p class="section-kicker">集計期間</p>
+              <h2 id="summary-heading"></h2>
+            </div>
+            <button class="ghost-action" id="nextPeriod" type="button">次の期間</button>
+          </div>
+
+          <div class="summary-grid">
+            <div>
+              <span>合計</span>
+              <strong id="totalOvertime">0分</strong>
+            </div>
+            <div>
+              <span>残業日数</span>
+              <strong id="recordCount">0日</strong>
+            </div>
+            <div>
+              <span>平均</span>
+              <strong id="averageOvertime">0分</strong>
+            </div>
+          </div>
+
+          <p class="small-note center">画面内で月の合計を確認できます。</p>
+        </section>
+
+        <section class="records-panel" aria-labelledby="records-heading">
+          <div class="records-heading-row">
+            <div>
+              <p class="section-kicker">勤務日ベース</p>
+              <h2 id="records-heading">この期間の記録</h2>
+            </div>
+            <p class="small-note">行をタップして修正・削除</p>
+          </div>
+
+          <div class="chart-wrap" id="recordsChart" role="group" aria-label="この期間の残業時間グラフ"></div>
+          <div class="records-list" id="recordsList"></div>
+        </section>
+      </div>
+
+      <section class="detail-view" id="detailView" aria-labelledby="detail-heading" hidden>
+        <button class="ghost-action back-action" id="backToList" type="button">一覧へ戻る</button>
+        <p class="section-kicker">記録詳細</p>
+        <h2 id="detail-heading"></h2>
+        <dl class="detail-grid">
+          <div>
+            <dt>退勤</dt>
+            <dd id="detailClockOut"></dd>
+          </div>
+          <div>
+            <dt>残業</dt>
+            <dd id="detailOvertime"></dd>
+          </div>
+          <div>
+            <dt>更新</dt>
+            <dd id="detailUpdated"></dd>
+          </div>
+        </dl>
+        <div class="detail-actions">
+          <button class="secondary-action" id="editSelectedRecord" type="button">修正</button>
+          <button class="danger-action" id="deleteSelectedRecord" type="button">削除</button>
         </div>
-
-        <button class="primary-action" id="clockOutNow" type="button">
-          退勤打刻
-        </button>
-
-        <form class="manual-form" id="recordForm">
-          <label>
-            <span>勤務日</span>
-            <input id="workDate" name="workDate" type="date" required>
-          </label>
-
-          <label>
-            <span>退勤時刻</span>
-            <input id="clockOutTime" name="clockOutTime" type="time" required>
-          </label>
-
-          <p class="input-hint">0:00〜16:59の手入力は、選んだ勤務日の残業終了時刻として集計します。</p>
-
-          <button class="secondary-action" type="submit">手入力で退勤打刻</button>
-        </form>
-
-        <p class="status-line" id="statusMessage" role="status" aria-live="polite"></p>
-        <p class="small-note">残業した日だけ記録します。記録はこの端末のブラウザに保存されます。</p>
-      </section>
-
-      <section class="summary-panel" aria-labelledby="summary-heading">
-        <div class="period-row">
-          <button class="ghost-action" id="prevPeriod" type="button">前の期間</button>
-          <div>
-            <p class="section-kicker">集計期間</p>
-            <h2 id="summary-heading"></h2>
-          </div>
-          <button class="ghost-action" id="nextPeriod" type="button">次の期間</button>
-        </div>
-
-        <div class="summary-grid">
-          <div>
-            <span>合計</span>
-            <strong id="totalOvertime">0分</strong>
-          </div>
-          <div>
-          <span>残業日数</span>
-            <strong id="recordCount">0日</strong>
-          </div>
-          <div>
-            <span>平均</span>
-            <strong id="averageOvertime">0分</strong>
-          </div>
-        </div>
-
-        <p class="small-note center">画面内で月の合計を確認できます。</p>
-      </section>
-
-      <section class="records-panel" aria-labelledby="records-heading">
-        <div class="records-heading-row">
-          <div>
-            <p class="section-kicker">勤務日ベース</p>
-            <h2 id="records-heading">この期間の記録</h2>
-          </div>
-          <p class="small-note">土日祝も記録した日は集計対象</p>
-        </div>
-        <div class="records-list" id="recordsList"></div>
       </section>
     </main>
 
     <template id="recordItemTemplate">
-      <article class="record-item">
-        <div class="record-main">
-          <p class="record-date"></p>
-          <p class="record-time"></p>
-        </div>
-        <div class="record-total"></div>
-        <div class="record-actions">
-          <button class="mini-action edit-record" type="button">修正</button>
-          <button class="mini-action delete-record" type="button">削除</button>
-        </div>
-      </article>
+      <button class="record-row" type="button">
+        <span class="record-date"></span>
+        <span class="record-time"></span>
+        <strong class="record-total"></strong>
+        <span class="record-open">詳細</span>
+      </button>
     </template>
 
     <script src="app.js" defer></script>

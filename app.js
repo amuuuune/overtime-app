@@ -13,6 +13,7 @@
 
   let records = [];
   let periodStart = "";
+  let selectedWorkDate = "";
   let elements = null;
 
   function pad2(value) {
@@ -152,6 +153,14 @@
     return `翌日 ${formatInputTime(clockOut)} 退勤`;
   }
 
+  function formatTimestamp(value) {
+    const date = new Date(value);
+    if (Number.isNaN(date.getTime())) {
+      return "-";
+    }
+    return `${date.getFullYear()}/${date.getMonth() + 1}/${date.getDate()} ${formatInputTime(date)}`;
+  }
+
   function getSuggestedWorkDate(now) {
     const base = new Date(now);
     if (base.getHours() < MORNING_CUTOFF_HOUR) {
@@ -266,15 +275,16 @@
   function deleteRecord(workDate) {
     const record = getRecordForDate(workDate);
     if (!record) {
-      return;
+      return false;
     }
     if (!window.confirm(`${formatDateWithWeekday(workDate)} の記録を削除しますか？`)) {
-      return;
+      return false;
     }
     records = records.filter((item) => item.workDate !== workDate);
     persistRecords();
     render();
     setStatus(`${formatDateWithWeekday(workDate)} の記録を削除しました。`);
+    return true;
   }
 
   function getPeriodRecords() {
@@ -286,21 +296,58 @@
 
   function renderRecord(record) {
     const item = elements.recordItemTemplate.content.firstElementChild.cloneNode(true);
-    item.querySelector(".record-date").textContent = formatDateWithWeekday(record.workDate);
-    item.querySelector(".record-time").textContent = formatClockOut(record);
+    item.querySelector(".record-date").textContent = `${formatShortDate(record.workDate)}（${WEEKDAYS[parseYmd(record.workDate).getDay()]}）`;
+    item.querySelector(".record-time").textContent = formatClockOut(record).replace(" 退勤", "");
     item.querySelector(".record-total").textContent = formatMinutes(record.overtimeMinutes);
-
-    item.querySelector(".edit-record").addEventListener("click", () => {
-      setFormFromClockOut(record.workDate, new Date(record.clockOutAt));
-      setStatus(`${formatDateWithWeekday(record.workDate)}を編集中です。`);
-      document.querySelector(".action-panel").scrollIntoView({ behavior: "smooth", block: "start" });
-    });
-
-    item.querySelector(".delete-record").addEventListener("click", () => {
-      deleteRecord(record.workDate);
+    item.addEventListener("click", () => {
+      showDetail(record.workDate);
     });
 
     return item;
+  }
+
+  function renderChart(periodRecords) {
+    elements.recordsChart.replaceChildren();
+    if (periodRecords.length === 0) {
+      elements.recordsChart.hidden = true;
+      return;
+    }
+
+    elements.recordsChart.hidden = false;
+    const maxMinutes = Math.max(...periodRecords.map((record) => record.overtimeMinutes), 1);
+    const scroll = document.createElement("div");
+    scroll.className = "chart-scroll";
+
+    for (const record of periodRecords.slice().reverse()) {
+      const bar = document.createElement("button");
+      const height = Math.max(3, Math.round((record.overtimeMinutes / maxMinutes) * 100));
+      bar.className = "chart-bar";
+      bar.type = "button";
+      bar.setAttribute("aria-label", `${formatDateWithWeekday(record.workDate)} ${formatMinutes(record.overtimeMinutes)}`);
+      bar.title = `${formatDateWithWeekday(record.workDate)} ${formatMinutes(record.overtimeMinutes)}`;
+      bar.addEventListener("click", () => {
+        showDetail(record.workDate);
+      });
+
+      const track = document.createElement("span");
+      track.className = "bar-track";
+      const fill = document.createElement("span");
+      fill.className = "bar-fill";
+      fill.style.height = `${height}%`;
+      track.append(fill);
+
+      const label = document.createElement("span");
+      label.className = "bar-label";
+      label.textContent = formatShortDate(record.workDate);
+
+      bar.append(track, label);
+      scroll.append(bar);
+    }
+
+    const note = document.createElement("p");
+    note.className = "chart-note";
+    note.textContent = "棒をタップすると詳細を確認できます。";
+    elements.recordsChart.append(scroll, note);
   }
 
   function renderRecordsList(periodRecords) {
@@ -323,14 +370,59 @@
   function render() {
     const period = getPeriodFromStart(periodStart);
     const periodRecords = getPeriodRecords();
+    const overtimeRecords = periodRecords.filter((record) => record.overtimeMinutes > 0);
     const total = periodRecords.reduce((sum, record) => sum + record.overtimeMinutes, 0);
-    const average = periodRecords.length ? Math.floor(total / periodRecords.length) : 0;
+    const average = overtimeRecords.length ? Math.floor(total / overtimeRecords.length) : 0;
 
     elements.summaryHeading.textContent = formatPeriod(period.start, period.end);
     elements.totalOvertime.textContent = formatMinutes(total);
-    elements.recordCount.textContent = `${periodRecords.filter((record) => record.overtimeMinutes > 0).length}日`;
+    elements.recordCount.textContent = `${overtimeRecords.length}日`;
     elements.averageOvertime.textContent = formatMinutes(average);
+    renderChart(periodRecords);
     renderRecordsList(periodRecords);
+    if (selectedWorkDate && !getRecordForDate(selectedWorkDate)) {
+      selectedWorkDate = "";
+    }
+  }
+
+  function showHome() {
+    elements.detailView.hidden = true;
+    elements.homeView.hidden = false;
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  }
+
+  function showDetail(workDate) {
+    selectedWorkDate = workDate;
+    const record = getRecordForDate(workDate);
+    if (!record) {
+      return;
+    }
+    elements.detailHeading.textContent = formatDateWithWeekday(record.workDate);
+    elements.detailClockOut.textContent = formatClockOut(record);
+    elements.detailOvertime.textContent = formatMinutes(record.overtimeMinutes);
+    elements.detailUpdated.textContent = formatTimestamp(record.updatedAt);
+    elements.homeView.hidden = true;
+    elements.detailView.hidden = false;
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  }
+
+  function editSelectedRecord() {
+    const record = getRecordForDate(selectedWorkDate);
+    if (!record) {
+      showHome();
+      return;
+    }
+    setFormFromClockOut(record.workDate, new Date(record.clockOutAt));
+    showHome();
+    setStatus(`${formatDateWithWeekday(record.workDate)}を修正中です。`);
+    elements.workDate.focus({ preventScroll: true });
+  }
+
+  function deleteSelectedRecord() {
+    if (deleteRecord(selectedWorkDate)) {
+      selectedWorkDate = "";
+      showHome();
+    }
   }
 
   function handleClockOutNow() {
@@ -359,6 +451,9 @@
   function wireEvents() {
     elements.clockOutNow.addEventListener("click", handleClockOutNow);
     elements.recordForm.addEventListener("submit", handleManualSubmit);
+    elements.backToList.addEventListener("click", showHome);
+    elements.editSelectedRecord.addEventListener("click", editSelectedRecord);
+    elements.deleteSelectedRecord.addEventListener("click", deleteSelectedRecord);
     elements.prevPeriod.addEventListener("click", () => {
       periodStart = shiftPeriod(periodStart, -1);
       render();
@@ -377,6 +472,8 @@
 
   function init() {
     elements = {
+      homeView: document.getElementById("homeView"),
+      detailView: document.getElementById("detailView"),
       clockOutNow: document.getElementById("clockOutNow"),
       recordForm: document.getElementById("recordForm"),
       workDate: document.getElementById("workDate"),
@@ -388,8 +485,16 @@
       totalOvertime: document.getElementById("totalOvertime"),
       recordCount: document.getElementById("recordCount"),
       averageOvertime: document.getElementById("averageOvertime"),
+      recordsChart: document.getElementById("recordsChart"),
       recordsList: document.getElementById("recordsList"),
       recordItemTemplate: document.getElementById("recordItemTemplate"),
+      backToList: document.getElementById("backToList"),
+      detailHeading: document.getElementById("detail-heading"),
+      detailClockOut: document.getElementById("detailClockOut"),
+      detailOvertime: document.getElementById("detailOvertime"),
+      detailUpdated: document.getElementById("detailUpdated"),
+      editSelectedRecord: document.getElementById("editSelectedRecord"),
+      deleteSelectedRecord: document.getElementById("deleteSelectedRecord"),
     };
 
     records = loadRecords();
