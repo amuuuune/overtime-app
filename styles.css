@@ -162,6 +162,21 @@ h3 {
   gap: 14px;
 }
 
+.checkbox-line {
+  align-items: center;
+  display: flex;
+  gap: 10px;
+  min-height: 36px;
+  color: var(--ink);
+  font-weight: 800;
+}
+
+.checkbox-line input {
+  inline-size: 20px;
+  block-size: 20px;
+  accent-color: var(--accent);
+}
+
 .manual-form label {
   display: grid;
   gap: 7px;
@@ -362,9 +377,21 @@ h3 {
 
 .bar-fill {
   width: 100%;
-  min-height: 3px;
   border-radius: 8px 8px 0 0;
   background: var(--accent);
+}
+
+.chart-bar.is-zero .bar-fill {
+  height: 0 !important;
+}
+
+.chart-bar.is-missing .bar-track {
+  background: #f3f5f7;
+}
+
+.chart-bar.has-record.is-zero .bar-track {
+  border: 1px solid color-mix(in srgb, var(--accent) 35%, var(--line));
+  background: var(--surface-strong);
 }
 
 .bar-label {
@@ -487,7 +514,8 @@ h3 {
     align-items: end;
   }
 
-  .manual-form .secondary-action {
+  .manual-form .secondary-action,
+  .manual-form .ghost-action {
     grid-column: span 2;
   }
 

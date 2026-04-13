@@ -14,6 +14,7 @@
   let records = [];
   let periodStart = "";
   let selectedWorkDate = "";
+  let editingWorkDate = "";
   let elements = null;
 
   function pad2(value) {
@@ -189,6 +190,18 @@
     return { start: toYmd(startDate), end: toYmd(end) };
   }
 
+  function getPeriodDays(start) {
+    const period = getPeriodFromStart(start);
+    const days = [];
+    let current = parseYmd(period.start);
+    const end = parseYmd(period.end);
+    while (current <= end) {
+      days.push(toYmd(current));
+      current = addDays(current, 1);
+    }
+    return days;
+  }
+
   function shiftPeriod(start, months) {
     const startDate = parseYmd(start);
     return toYmd(new Date(startDate.getFullYear(), startDate.getMonth() + months, 16));
@@ -232,6 +245,11 @@
     elements.statusMessage.textContent = message;
   }
 
+  function setEditingMode(workDate) {
+    editingWorkDate = workDate || "";
+    elements.cancelEdit.hidden = !editingWorkDate;
+  }
+
   function setFormFromClockOut(workDate, clockOut) {
     elements.workDate.value = workDate;
     elements.clockOutTime.value = formatInputTime(clockOut);
@@ -242,16 +260,16 @@
     setFormFromClockOut(getSuggestedWorkDate(now), now);
   }
 
-  function shouldOverwrite(workDate) {
+  function shouldOverwrite(workDate, skipConfirm) {
     const existing = getRecordForDate(workDate);
-    if (!existing) {
+    if (!existing || skipConfirm) {
       return true;
     }
     return window.confirm(`${formatDateWithWeekday(workDate)} の記録があります。上書きしますか？`);
   }
 
-  function saveRecord(workDate, clockOut) {
-    if (!shouldOverwrite(workDate)) {
+  function saveRecord(workDate, clockOut, options = {}) {
+    if (!shouldOverwrite(workDate, options.skipConfirm)) {
       setStatus("上書きを取り消しました。");
       return false;
     }
@@ -272,6 +290,7 @@
     persistRecords();
     periodStart = getPeriodForDate(workDate).start;
     render();
+    setEditingMode("");
     setStatus(`${formatDateWithWeekday(workDate)}を${formatMinutes(nextRecord.overtimeMinutes)}で保存しました。`);
     return true;
   }
@@ -332,26 +351,35 @@
 
   function renderChart(periodRecords) {
     elements.recordsChart.replaceChildren();
-    if (periodRecords.length === 0) {
-      elements.recordsChart.hidden = true;
-      return;
-    }
-
     elements.recordsChart.hidden = false;
-    const maxMinutes = Math.max(...periodRecords.map((record) => record.overtimeMinutes), 1);
+    const recordMap = new Map(periodRecords.map((record) => [record.workDate, record]));
+    const dayEntries = getPeriodDays(periodStart).map((workDate) => {
+      const record = recordMap.get(workDate) || null;
+      return {
+        workDate,
+        record,
+        overtimeMinutes: record ? record.overtimeMinutes : 0,
+      };
+    });
+    const maxMinutes = Math.max(...dayEntries.map((entry) => entry.overtimeMinutes), 1);
     const scroll = document.createElement("div");
     scroll.className = "chart-scroll";
 
-    for (const record of periodRecords.slice().reverse()) {
-      const bar = document.createElement("button");
-      const height = Math.max(3, Math.round((record.overtimeMinutes / maxMinutes) * 100));
-      bar.className = "chart-bar";
-      bar.type = "button";
-      bar.setAttribute("aria-label", `${formatDateWithWeekday(record.workDate)} ${formatMinutes(record.overtimeMinutes)}`);
-      bar.title = `${formatDateWithWeekday(record.workDate)} ${formatMinutes(record.overtimeMinutes)}`;
-      bar.addEventListener("click", () => {
-        showDetail(record.workDate);
-      });
+    for (const entry of dayEntries) {
+      const bar = document.createElement(entry.record ? "button" : "span");
+      const height = entry.overtimeMinutes > 0 ? Math.max(3, Math.round((entry.overtimeMinutes / maxMinutes) * 100)) : 0;
+      bar.className = `chart-bar ${entry.record ? "has-record" : "is-missing"} ${entry.overtimeMinutes === 0 ? "is-zero" : ""}`;
+      if (entry.record) {
+        bar.type = "button";
+        bar.setAttribute("aria-label", `${formatDateWithWeekday(entry.workDate)} ${formatMinutes(entry.overtimeMinutes)}`);
+        bar.title = `${formatDateWithWeekday(entry.workDate)} ${formatMinutes(entry.overtimeMinutes)}`;
+        bar.addEventListener("click", () => {
+          showDetail(entry.workDate);
+        });
+      } else {
+        bar.setAttribute("aria-label", `${formatDateWithWeekday(entry.workDate)} 未打刻`);
+        bar.title = `${formatDateWithWeekday(entry.workDate)} 未打刻`;
+      }
 
       const track = document.createElement("span");
       track.className = "bar-track";
@@ -362,7 +390,7 @@
 
       const label = document.createElement("span");
       label.className = "bar-label";
-      label.textContent = formatShortDate(record.workDate);
+      label.textContent = formatShortDate(entry.workDate);
 
       bar.append(track, label);
       scroll.append(bar);
@@ -370,8 +398,11 @@
 
     const note = document.createElement("p");
     note.className = "chart-note";
-    note.textContent = "棒をタップすると詳細を確認できます。";
+    note.textContent = "記録済みの日は棒をタップすると詳細を確認できます。";
     elements.recordsChart.append(scroll, note);
+    window.requestAnimationFrame(() => {
+      scroll.scrollLeft = scroll.scrollWidth;
+    });
   }
 
   function renderTrendChart() {
@@ -434,7 +465,7 @@
     const periodRecords = getPeriodRecords();
     const overtimeRecords = periodRecords.filter((record) => record.overtimeMinutes > 0);
     const total = periodRecords.reduce((sum, record) => sum + record.overtimeMinutes, 0);
-    const average = overtimeRecords.length ? Math.floor(total / overtimeRecords.length) : 0;
+    const average = periodRecords.length ? Math.floor(total / periodRecords.length) : 0;
 
     elements.summaryHeading.textContent = formatPeriod(period.start, period.end);
     elements.totalOvertime.textContent = formatMinutes(total);
@@ -476,24 +507,39 @@
       return;
     }
     setFormFromClockOut(record.workDate, new Date(record.clockOutAt));
+    setEditingMode(record.workDate);
     showHome();
     setStatus(`${formatDateWithWeekday(record.workDate)}を修正中です。`);
     elements.workDate.focus({ preventScroll: true });
   }
 
+  function cancelEdit() {
+    setEditingMode("");
+    setDefaultFormNow();
+    setStatus("修正をキャンセルしました。");
+  }
+
   function deleteSelectedRecord() {
     if (deleteRecord(selectedWorkDate)) {
       selectedWorkDate = "";
+      setEditingMode("");
       showHome();
     }
   }
 
   function handleClockOutNow() {
     const now = truncateToMinute(new Date());
-    const workDate = getSuggestedWorkDate(now);
-    const saved = saveRecord(workDate, now);
+    let workDate = getSuggestedWorkDate(now);
+    let clockOut = now;
+    if (elements.regularClockOut.checked) {
+      workDate = elements.workDate.value || workDate;
+      clockOut = combineWorkDateTime(workDate, OVERTIME_START_TIME, false);
+    }
+
+    const saved = saveRecord(workDate, clockOut);
     if (saved) {
-      setFormFromClockOut(workDate, now);
+      setFormFromClockOut(workDate, clockOut);
+      elements.regularClockOut.checked = false;
     }
   }
 
@@ -508,7 +554,7 @@
       return;
     }
 
-    saveRecord(workDate, clockOut);
+    saveRecord(workDate, clockOut, { skipConfirm: editingWorkDate === workDate });
   }
 
   function wireEvents() {
@@ -517,6 +563,7 @@
     elements.backToList.addEventListener("click", showHome);
     elements.editSelectedRecord.addEventListener("click", editSelectedRecord);
     elements.deleteSelectedRecord.addEventListener("click", deleteSelectedRecord);
+    elements.cancelEdit.addEventListener("click", cancelEdit);
     elements.prevPeriod.addEventListener("click", () => {
       periodStart = shiftPeriod(periodStart, -1);
       render();
@@ -538,9 +585,11 @@
       homeView: document.getElementById("homeView"),
       detailView: document.getElementById("detailView"),
       clockOutNow: document.getElementById("clockOutNow"),
+      regularClockOut: document.getElementById("regularClockOut"),
       recordForm: document.getElementById("recordForm"),
       workDate: document.getElementById("workDate"),
       clockOutTime: document.getElementById("clockOutTime"),
+      cancelEdit: document.getElementById("cancelEdit"),
       statusMessage: document.getElementById("statusMessage"),
       prevPeriod: document.getElementById("prevPeriod"),
       nextPeriod: document.getElementById("nextPeriod"),

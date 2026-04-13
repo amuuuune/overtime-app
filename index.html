@@ -27,6 +27,11 @@
             退勤打刻
           </button>
 
+          <label class="checkbox-line">
+            <input id="regularClockOut" name="regularClockOut" type="checkbox">
+            <span>定時扱い（残業0分）</span>
+          </label>
+
           <form class="manual-form" id="recordForm">
             <label>
               <span>勤務日</span>
@@ -41,10 +46,11 @@
             <p class="input-hint">0:00〜16:59の手入力は、選んだ勤務日の残業終了時刻として集計します。</p>
 
             <button class="secondary-action" type="submit">手入力で退勤打刻</button>
+            <button class="ghost-action" id="cancelEdit" type="button" hidden>修正をキャンセル</button>
           </form>
 
           <p class="status-line" id="statusMessage" role="status" aria-live="polite"></p>
-          <p class="small-note">残業した日だけ記録します。記録はこの端末のブラウザに保存されます。</p>
+          <p class="small-note">平均に含めたい定時の日は、定時扱いで打刻します。記録はこの端末のブラウザに保存されます。</p>
         </section>
 
         <section class="summary-panel" aria-labelledby="summary-heading">
@@ -59,12 +65,12 @@
 
           <div class="summary-grid">
             <div>
-              <span>合計</span>
-              <strong id="totalOvertime">0分</strong>
-            </div>
-            <div>
               <span>残業日数</span>
               <strong id="recordCount">0日</strong>
+            </div>
+            <div>
+              <span>合計</span>
+              <strong id="totalOvertime">0分</strong>
             </div>
             <div>
               <span>平均</span>
@@ -83,7 +89,7 @@
             <div class="trend-chart" id="trendChart" role="group" aria-label="半年分の月別残業時間"></div>
           </div>
 
-          <p class="small-note center">画面内で月の合計を確認できます。</p>
+          <p class="small-note center">平均は打刻した日数で計算します。未打刻日は休日扱いです。</p>
         </section>
 
         <section class="records-panel" aria-labelledby="records-heading">
