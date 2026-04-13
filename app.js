@@ -2,6 +2,9 @@
   "use strict";
 
   const STORAGE_KEY = "overtime-records-v1";
+  const SUPABASE_URL = "https://amijlzfjamcstxchwkud.supabase.co";
+  const SUPABASE_PUBLISHABLE_KEY = "sb_publishable_oHGPXeQxwEjeK7HlF9gDZQ_HA39G8y0";
+  const CLOUD_TABLE = "overtime_records";
   const MORNING_CUTOFF_HOUR = 5;
   const OVERTIME_START_TIME = "17:00";
   const OVERTIME_START_HOUR = 17;
@@ -16,6 +19,9 @@
   let selectedWorkDate = "";
   let editingWorkDate = "";
   let detailReturnScrollY = 0;
+  let supabaseClient = null;
+  let currentUser = null;
+  let cloudBusy = false;
   let elements = null;
 
   function pad2(value) {
@@ -240,6 +246,196 @@
     window.localStorage.setItem(STORAGE_KEY, JSON.stringify(records));
   }
 
+  function isCloudSignedIn() {
+    return Boolean(supabaseClient && currentUser);
+  }
+
+  function toCloudRecord(record) {
+    return {
+      user_id: currentUser.id,
+      work_date: record.workDate,
+      clock_out_at: record.clockOutAt,
+      overtime_minutes: record.overtimeMinutes,
+      updated_at: record.updatedAt,
+    };
+  }
+
+  function fromCloudRecord(row) {
+    const clockOut = new Date(row.clock_out_at);
+    return {
+      id: row.work_date,
+      workDate: row.work_date,
+      clockOutAt: clockOut.toISOString(),
+      overtimeMinutes: calculateOvertimeMinutes(row.work_date, clockOut),
+      updatedAt: row.updated_at || row.clock_out_at,
+    };
+  }
+
+  function recordTimestamp(record) {
+    const updatedAt = new Date(record.updatedAt || record.clockOutAt).getTime();
+    return Number.isNaN(updatedAt) ? 0 : updatedAt;
+  }
+
+  function mergeRecordsByDate(...recordSets) {
+    const byDate = new Map();
+    for (const recordSet of recordSets) {
+      for (const record of recordSet) {
+        const existing = byDate.get(record.workDate);
+        if (!existing || recordTimestamp(record) >= recordTimestamp(existing)) {
+          byDate.set(record.workDate, record);
+        }
+      }
+    }
+    return Array.from(byDate.values()).sort((a, b) => a.workDate.localeCompare(b.workDate));
+  }
+
+  function setCloudBusy(nextBusy) {
+    cloudBusy = nextBusy;
+    if (!elements) {
+      return;
+    }
+    elements.authSubmit.disabled = cloudBusy;
+    elements.syncCloud.disabled = cloudBusy;
+    elements.signOut.disabled = cloudBusy;
+  }
+
+  function renderCloudUi(message) {
+    if (!elements) {
+      return;
+    }
+    const signedIn = isCloudSignedIn();
+    elements.authForm.hidden = signedIn || !supabaseClient;
+    elements.syncCloud.hidden = !signedIn;
+    elements.signOut.hidden = !signedIn;
+    elements.cloudState.textContent = signedIn ? "クラウド" : "端末保存";
+    if (signedIn && currentUser.email) {
+      elements.authEmail.value = currentUser.email;
+    }
+    elements.cloudMessage.textContent =
+      message ||
+      (signedIn
+        ? `${currentUser.email || "ログイン中"} の記録としてSupabaseへ保存します。`
+        : "ログインするとSupabaseへ保存します。未ログイン中はこの端末に保存します。");
+  }
+
+  function cloudErrorMessage(action, error) {
+    return `${action}に失敗しました。SupabaseのSQL作成やログインURL設定を確認してください。${error && error.message ? `（${error.message}）` : ""}`;
+  }
+
+  async function syncRecordToCloud(record) {
+    if (!isCloudSignedIn()) {
+      return true;
+    }
+    const { error } = await supabaseClient
+      .from(CLOUD_TABLE)
+      .upsert([toCloudRecord(record)], { onConflict: "user_id,work_date" });
+    if (error) {
+      setStatus(cloudErrorMessage("クラウド保存", error));
+      renderCloudUi(cloudErrorMessage("クラウド保存", error));
+      return false;
+    }
+    renderCloudUi();
+    return true;
+  }
+
+  async function deleteRecordFromCloud(workDate) {
+    if (!isCloudSignedIn()) {
+      return true;
+    }
+    const { error } = await supabaseClient
+      .from(CLOUD_TABLE)
+      .delete()
+      .eq("user_id", currentUser.id)
+      .eq("work_date", workDate);
+    if (error) {
+      setStatus(cloudErrorMessage("クラウド削除", error));
+      renderCloudUi(cloudErrorMessage("クラウド削除", error));
+      return false;
+    }
+    renderCloudUi();
+    return true;
+  }
+
+  async function syncCloudRecords() {
+    if (!isCloudSignedIn()) {
+      renderCloudUi();
+      return false;
+    }
+    setCloudBusy(true);
+    renderCloudUi("Supabaseと同期中です。");
+    try {
+      const { data, error } = await supabaseClient
+        .from(CLOUD_TABLE)
+        .select("work_date, clock_out_at, overtime_minutes, updated_at")
+        .order("work_date", { ascending: true });
+      if (error) {
+        renderCloudUi(cloudErrorMessage("クラウド読み込み", error));
+        return false;
+      }
+
+      const cloudRecords = (data || [])
+        .map(fromCloudRecord)
+        .filter((record) => !Number.isNaN(new Date(record.clockOutAt).getTime()));
+      records = mergeRecordsByDate(records, cloudRecords);
+      persistRecords();
+
+      if (records.length > 0) {
+        const { error: upsertError } = await supabaseClient
+          .from(CLOUD_TABLE)
+          .upsert(records.map(toCloudRecord), { onConflict: "user_id,work_date" });
+        if (upsertError) {
+          renderCloudUi(cloudErrorMessage("クラウド同期", upsertError));
+          render();
+          return false;
+        }
+      }
+
+      render();
+      renderCloudUi(`${currentUser.email || "ログイン中"} と同期済みです。`);
+      return true;
+    } finally {
+      setCloudBusy(false);
+    }
+  }
+
+  async function applySession(session) {
+    currentUser = session && session.user ? session.user : null;
+    if (!currentUser) {
+      renderCloudUi("ログインするとSupabaseへ保存します。未ログイン中はこの端末に保存します。");
+      return;
+    }
+    renderCloudUi(`${currentUser.email || "ログイン中"} でログインしました。同期します。`);
+    await syncCloudRecords();
+  }
+
+  async function initCloud() {
+    if (!window.supabase || !window.supabase.createClient) {
+      renderCloudUi("Supabase機能を読み込めませんでした。ネットワーク接続後に再読み込みしてください。");
+      return;
+    }
+    supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY, {
+      auth: {
+        persistSession: true,
+        autoRefreshToken: true,
+        detectSessionInUrl: true,
+      },
+    });
+    renderCloudUi("ログイン状態を確認中です。");
+
+    const { data, error } = await supabaseClient.auth.getSession();
+    if (error) {
+      renderCloudUi(cloudErrorMessage("ログイン状態の確認", error));
+    } else {
+      await applySession(data.session);
+    }
+
+    supabaseClient.auth.onAuthStateChange((_event, session) => {
+      window.setTimeout(() => {
+        applySession(session);
+      }, 0);
+    });
+  }
+
   function getRecordForDate(workDate) {
     return records.find((record) => record.workDate === workDate) || null;
   }
@@ -272,7 +468,7 @@
     return window.confirm(`${formatDateWithWeekday(workDate)} の記録があります。上書きしますか？`);
   }
 
-  function saveRecord(workDate, clockOut, options = {}) {
+  async function saveRecord(workDate, clockOut, options = {}) {
     if (!shouldOverwrite(workDate, options.skipConfirm)) {
       setStatus("上書きを取り消しました。");
       return false;
@@ -296,15 +492,27 @@
     render();
     setEditingMode("");
     setStatus(`${formatDateWithWeekday(workDate)}を${formatMinutes(nextRecord.overtimeMinutes)}で保存しました。`);
+    if (isCloudSignedIn()) {
+      setStatus(`${formatDateWithWeekday(workDate)}を保存しました。クラウドへ同期中です。`);
+      const synced = await syncRecordToCloud(nextRecord);
+      setStatus(
+        synced
+          ? `${formatDateWithWeekday(workDate)}を${formatMinutes(nextRecord.overtimeMinutes)}でクラウド保存しました。`
+          : `${formatDateWithWeekday(workDate)}をこの端末に保存しました。クラウド同期は失敗しました。`
+      );
+    }
     return true;
   }
 
-  function deleteRecord(workDate) {
+  async function deleteRecord(workDate) {
     const record = getRecordForDate(workDate);
     if (!record) {
       return false;
     }
     if (!window.confirm(`${formatDateWithWeekday(workDate)} の記録を削除しますか？`)) {
+      return false;
+    }
+    if (!(await deleteRecordFromCloud(workDate))) {
       return false;
     }
     records = records.filter((item) => item.workDate !== workDate);
@@ -529,15 +737,15 @@
     setStatus("修正をキャンセルしました。");
   }
 
-  function deleteSelectedRecord() {
-    if (deleteRecord(selectedWorkDate)) {
+  async function deleteSelectedRecord() {
+    if (await deleteRecord(selectedWorkDate)) {
       selectedWorkDate = "";
       setEditingMode("");
       showHome({ restoreScroll: true });
     }
   }
 
-  function handleClockOutNow() {
+  async function handleClockOutNow() {
     const now = truncateToMinute(new Date());
     let workDate = getSuggestedWorkDate(now);
     let clockOut = now;
@@ -546,14 +754,14 @@
       clockOut = combineWorkDateTime(workDate, OVERTIME_START_TIME, false);
     }
 
-    const saved = saveRecord(workDate, clockOut);
+    const saved = await saveRecord(workDate, clockOut);
     if (saved) {
       setFormFromClockOut(workDate, clockOut);
       elements.regularClockOut.checked = false;
     }
   }
 
-  function handleManualSubmit(event) {
+  async function handleManualSubmit(event) {
     event.preventDefault();
     const workDate = elements.workDate.value;
     const clockOutTime = elements.clockOutTime.value;
@@ -566,14 +774,68 @@
       return;
     }
 
-    if (saveRecord(workDate, clockOut, { skipConfirm: editingWorkDate === workDate })) {
+    if (await saveRecord(workDate, clockOut, { skipConfirm: editingWorkDate === workDate })) {
       elements.regularClockOut.checked = false;
+    }
+  }
+
+  async function handleAuthSubmit(event) {
+    event.preventDefault();
+    if (!supabaseClient) {
+      renderCloudUi("Supabase機能を読み込めませんでした。再読み込みしてください。");
+      return;
+    }
+    const email = elements.authEmail.value.trim();
+    if (!email) {
+      renderCloudUi("メールアドレスを入力してください。");
+      return;
+    }
+
+    setCloudBusy(true);
+    renderCloudUi("ログインメールを送信中です。");
+    try {
+      const redirectTo = new URL("./", window.location.href).href;
+      const { error } = await supabaseClient.auth.signInWithOtp({
+        email,
+        options: {
+          emailRedirectTo: redirectTo,
+          shouldCreateUser: true,
+        },
+      });
+      renderCloudUi(
+        error
+          ? cloudErrorMessage("ログインメール送信", error)
+          : "ログインメールを送りました。同じスマホでメール内のリンクを開いてください。"
+      );
+    } finally {
+      setCloudBusy(false);
+    }
+  }
+
+  async function handleSignOut() {
+    if (!supabaseClient) {
+      return;
+    }
+    setCloudBusy(true);
+    try {
+      const { error } = await supabaseClient.auth.signOut();
+      if (error) {
+        renderCloudUi(cloudErrorMessage("ログアウト", error));
+        return;
+      }
+      currentUser = null;
+      renderCloudUi("ログアウトしました。未ログイン中はこの端末に保存します。");
+    } finally {
+      setCloudBusy(false);
     }
   }
 
   function wireEvents() {
     elements.clockOutNow.addEventListener("click", handleClockOutNow);
     elements.recordForm.addEventListener("submit", handleManualSubmit);
+    elements.authForm.addEventListener("submit", handleAuthSubmit);
+    elements.syncCloud.addEventListener("click", syncCloudRecords);
+    elements.signOut.addEventListener("click", handleSignOut);
     elements.backToList.addEventListener("click", () => {
       showHome({ restoreScroll: true });
     });
@@ -600,6 +862,13 @@
     elements = {
       homeView: document.getElementById("homeView"),
       detailView: document.getElementById("detailView"),
+      cloudState: document.getElementById("cloudState"),
+      cloudMessage: document.getElementById("cloudMessage"),
+      authForm: document.getElementById("authForm"),
+      authEmail: document.getElementById("authEmail"),
+      authSubmit: document.getElementById("authSubmit"),
+      syncCloud: document.getElementById("syncCloud"),
+      signOut: document.getElementById("signOut"),
       clockOutNow: document.getElementById("clockOutNow"),
       regularClockOut: document.getElementById("regularClockOut"),
       recordForm: document.getElementById("recordForm"),
@@ -631,6 +900,7 @@
     periodStart = getPeriodForDate(elements.workDate.value).start;
     wireEvents();
     render();
+    initCloud();
   }
 
   const testApi = {

@@ -17,6 +17,28 @@
           <p class="lead">残業した日の退勤時刻を記録すると、休憩時間を除いた残業を1分単位で集計します。</p>
         </header>
 
+        <section class="cloud-panel" aria-labelledby="cloud-heading">
+          <div class="cloud-heading-row">
+            <div>
+              <p class="section-kicker">保存先</p>
+              <h2 id="cloud-heading">クラウド保存</h2>
+            </div>
+            <span class="cloud-pill" id="cloudState">確認中</span>
+          </div>
+          <p class="small-note" id="cloudMessage">ログインするとSupabaseへ保存します。</p>
+          <form class="auth-form" id="authForm">
+            <label>
+              <span>メールアドレス</span>
+              <input id="authEmail" name="authEmail" type="email" autocomplete="email" inputmode="email" placeholder="mail@example.com" required>
+            </label>
+            <button class="secondary-action" id="authSubmit" type="submit">ログインメールを送る</button>
+          </form>
+          <div class="cloud-actions">
+            <button class="ghost-action" id="syncCloud" type="button" hidden>今すぐ同期</button>
+            <button class="ghost-action" id="signOut" type="button" hidden>ログアウト</button>
+          </div>
+        </section>
+
         <section class="action-panel" aria-labelledby="record-heading">
           <div class="record-title-row">
             <p class="section-kicker">今日の記録</p>
@@ -49,7 +71,7 @@
           </form>
 
           <p class="status-line" id="statusMessage" role="status" aria-live="polite"></p>
-          <p class="small-note">平均に含めたい定時の日は、定時扱いで打刻します。記録はこの端末のブラウザに保存されます。</p>
+          <p class="small-note">平均に含めたい定時の日は、定時扱いで打刻します。</p>
         </section>
 
         <section class="summary-panel" aria-labelledby="summary-heading">
@@ -138,6 +160,7 @@
       </button>
     </template>
 
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2" defer></script>
     <script src="app.js" defer></script>
   </body>
 </html>

@@ -38,6 +38,11 @@ button {
   cursor: pointer;
 }
 
+button:disabled {
+  cursor: wait;
+  opacity: 0.6;
+}
+
 button:focus-visible,
 input:focus-visible {
   outline: 3px solid color-mix(in srgb, var(--focus) 40%, transparent);
@@ -56,6 +61,7 @@ input:focus-visible {
 }
 
 .topbar,
+.cloud-panel,
 .action-panel,
 .summary-panel,
 .records-panel {
@@ -109,6 +115,55 @@ h3 {
 .lead {
   margin: 12px 0 0;
   color: var(--muted);
+}
+
+.cloud-panel {
+  display: grid;
+  gap: 14px;
+}
+
+.cloud-heading-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 10px;
+  align-items: end;
+}
+
+.cloud-pill {
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--surface-strong);
+  color: var(--ink);
+  padding: 5px 8px;
+  font-size: 0.72rem;
+  font-weight: 800;
+  white-space: nowrap;
+}
+
+.auth-form,
+.cloud-actions {
+  display: grid;
+  gap: 10px;
+}
+
+.auth-form label {
+  display: grid;
+  gap: 7px;
+  color: var(--muted);
+  font-size: 0.9rem;
+  font-weight: 700;
+}
+
+.auth-form input {
+  min-height: 48px;
+  width: 100%;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #ffffff;
+  color: var(--ink);
+  padding: 9px 12px;
+  font-size: 1rem;
+  font-weight: 600;
 }
 
 .action-panel {
@@ -536,10 +591,20 @@ h3 {
 
 @media (min-width: 560px) {
   .topbar,
+  .cloud-panel,
   .action-panel,
   .summary-panel,
   .records-panel {
     padding-inline: 28px;
+  }
+
+  .auth-form {
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: end;
+  }
+
+  .cloud-actions {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
   .manual-form {
