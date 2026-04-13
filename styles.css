@@ -78,12 +78,14 @@ input:focus-visible {
 
 h1,
 h2,
+h3,
 p {
   overflow-wrap: anywhere;
 }
 
 h1,
-h2 {
+h2,
+h3 {
   margin: 0;
   line-height: 1.2;
   letter-spacing: 0;
@@ -97,6 +99,11 @@ h1 {
 h2 {
   margin-top: 4px;
   font-size: 1.35rem;
+}
+
+h3 {
+  margin-top: 4px;
+  font-size: 1.05rem;
 }
 
 .lead {
@@ -238,6 +245,69 @@ h2 {
 .center {
   margin-top: 14px;
   text-align: center;
+}
+
+.trend-block {
+  margin-top: 22px;
+}
+
+.trend-heading {
+  display: grid;
+  gap: 8px;
+}
+
+.trend-chart {
+  display: grid;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.trend-row {
+  display: grid;
+  grid-template-columns: minmax(76px, auto) minmax(0, 1fr) minmax(74px, auto);
+  gap: 9px;
+  align-items: center;
+  min-height: 38px;
+  width: 100%;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #ffffff;
+  color: var(--ink);
+  padding: 8px 10px;
+  text-align: left;
+}
+
+.trend-row.is-current {
+  border-color: color-mix(in srgb, var(--accent) 50%, var(--line));
+  background: var(--surface-strong);
+}
+
+.trend-label {
+  color: var(--muted);
+  font-size: 0.78rem;
+  font-weight: 800;
+  white-space: nowrap;
+}
+
+.trend-track {
+  height: 10px;
+  overflow: hidden;
+  border-radius: 8px;
+  background: #eef1f4;
+}
+
+.trend-fill {
+  display: block;
+  height: 100%;
+  border-radius: 8px;
+  background: var(--accent);
+}
+
+.trend-total {
+  font-size: 0.86rem;
+  font-weight: 900;
+  text-align: right;
+  white-space: nowrap;
 }
 
 .records-panel {
@@ -439,6 +509,11 @@ h2 {
   }
 
   .records-heading-row {
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: end;
+  }
+
+  .trend-heading {
     grid-template-columns: minmax(0, 1fr) auto;
     align-items: end;
   }

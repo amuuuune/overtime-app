@@ -144,6 +144,10 @@
     return `${startDate.getFullYear()}/${startDate.getMonth() + 1}/${startDate.getDate()} - ${endDate.getFullYear()}/${endDate.getMonth() + 1}/${endDate.getDate()}`;
   }
 
+  function formatPeriodShort(start, end) {
+    return `${formatShortDate(start)}〜${formatShortDate(end)}`;
+  }
+
   function formatClockOut(record) {
     const clockOut = new Date(record.clockOutAt);
     const clockOutDate = toYmd(clockOut);
@@ -294,6 +298,26 @@
       .sort((a, b) => b.workDate.localeCompare(a.workDate));
   }
 
+  function getRecordsForPeriod(start) {
+    const period = getPeriodFromStart(start);
+    return records.filter((record) => record.workDate >= period.start && record.workDate <= period.end);
+  }
+
+  function getTrendPeriods() {
+    const periods = [];
+    for (let offset = 5; offset >= 0; offset -= 1) {
+      const start = shiftPeriod(periodStart, -offset);
+      const period = getPeriodFromStart(start);
+      const periodRecords = getRecordsForPeriod(start);
+      periods.push({
+        start: period.start,
+        end: period.end,
+        total: periodRecords.reduce((sum, record) => sum + record.overtimeMinutes, 0),
+      });
+    }
+    return periods;
+  }
+
   function renderRecord(record) {
     const item = elements.recordItemTemplate.content.firstElementChild.cloneNode(true);
     item.querySelector(".record-date").textContent = `${formatShortDate(record.workDate)}（${WEEKDAYS[parseYmd(record.workDate).getDay()]}）`;
@@ -350,6 +374,44 @@
     elements.recordsChart.append(scroll, note);
   }
 
+  function renderTrendChart() {
+    const periods = getTrendPeriods();
+    const maxTotal = Math.max(...periods.map((period) => period.total), 1);
+    const fragment = document.createDocumentFragment();
+
+    elements.trendChart.replaceChildren();
+    for (const period of periods) {
+      const row = document.createElement("button");
+      const width = period.total > 0 ? Math.max(4, Math.round((period.total / maxTotal) * 100)) : 0;
+      row.className = period.start === periodStart ? "trend-row is-current" : "trend-row";
+      row.type = "button";
+      row.setAttribute("aria-label", `${formatPeriod(period.start, period.end)} ${formatMinutes(period.total)}`);
+      row.addEventListener("click", () => {
+        periodStart = period.start;
+        render();
+      });
+
+      const label = document.createElement("span");
+      label.className = "trend-label";
+      label.textContent = formatPeriodShort(period.start, period.end);
+
+      const track = document.createElement("span");
+      track.className = "trend-track";
+      const fill = document.createElement("span");
+      fill.className = "trend-fill";
+      fill.style.width = `${width}%`;
+      track.append(fill);
+
+      const total = document.createElement("span");
+      total.className = "trend-total";
+      total.textContent = formatMinutes(period.total);
+
+      row.append(label, track, total);
+      fragment.append(row);
+    }
+    elements.trendChart.append(fragment);
+  }
+
   function renderRecordsList(periodRecords) {
     elements.recordsList.replaceChildren();
     if (periodRecords.length === 0) {
@@ -378,6 +440,7 @@
     elements.totalOvertime.textContent = formatMinutes(total);
     elements.recordCount.textContent = `${overtimeRecords.length}日`;
     elements.averageOvertime.textContent = formatMinutes(average);
+    renderTrendChart();
     renderChart(periodRecords);
     renderRecordsList(periodRecords);
     if (selectedWorkDate && !getRecordForDate(selectedWorkDate)) {
@@ -485,6 +548,7 @@
       totalOvertime: document.getElementById("totalOvertime"),
       recordCount: document.getElementById("recordCount"),
       averageOvertime: document.getElementById("averageOvertime"),
+      trendChart: document.getElementById("trendChart"),
       recordsChart: document.getElementById("recordsChart"),
       recordsList: document.getElementById("recordsList"),
       recordItemTemplate: document.getElementById("recordItemTemplate"),
