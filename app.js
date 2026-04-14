@@ -7,6 +7,7 @@
   const CLOUD_TABLE = "overtime_records";
   const RETAINED_PERIODS = 12;
   const EDITABLE_PERIODS = 2;
+  const NIGHT_WORK_WARNING_CUTOFF_HOUR = 5;
   const WORKDAY_START_TIME = "08:35";
   const OVERTIME_START_TIME = "17:00";
   const OVERTIME_START_HOUR = 17;
@@ -19,6 +20,7 @@
     { start: "10:00", end: "10:15" },
     { start: "11:45", end: "12:30" },
     { start: "15:00", end: "15:15" },
+    ...BREAKS,
   ];
 
   let records = [];
@@ -96,6 +98,18 @@
       return false;
     }
     return parsedTime.hours < OVERTIME_START_HOUR;
+  }
+
+  function isNightWorkTime(time) {
+    const parsedTime = parseTime(time);
+    return Boolean(parsedTime && parsedTime.hours < NIGHT_WORK_WARNING_CUTOFF_HOUR);
+  }
+
+  function shouldSaveWithoutOvernight(time) {
+    if (!isNightWorkTime(time)) {
+      return true;
+    }
+    return window.confirm("深夜の退勤時刻です。日またぎ残業ではなく、この日の残業0分として記録しますか？");
   }
 
   function diffMinutes(start, end) {
@@ -923,6 +937,10 @@
   async function handleClockOutNow() {
     const now = truncateToMinute(new Date());
     const overtimeOptions = getSpecialOptions();
+    if (!overtimeOptions.nextDay && !shouldSaveWithoutOvernight(formatInputTime(now))) {
+      setStatus("保存を取り消しました。日またぎ残業の場合は特殊な勤務から選んでください。");
+      return;
+    }
     const workDate = overtimeOptions.nextDay ? toYmd(addDays(now, -1)) : getSuggestedWorkDate(now);
     const clockOut = now;
 
@@ -938,6 +956,10 @@
     const workDate = elements.workDate.value;
     const clockOutTime = elements.clockOutTime.value;
     const overtimeOptions = getSpecialOptions();
+    if (!overtimeOptions.nextDay && !shouldSaveWithoutOvernight(clockOutTime)) {
+      setStatus("保存を取り消しました。日またぎ残業の場合は特殊な勤務から選んでください。");
+      return;
+    }
     const clockOut = combineWorkDateTime(workDate, clockOutTime, overtimeOptions.nextDay);
 
     if (Number.isNaN(clockOut.getTime())) {
