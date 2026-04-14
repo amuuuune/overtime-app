@@ -7,13 +7,18 @@
   const CLOUD_TABLE = "overtime_records";
   const RETAINED_PERIODS = 12;
   const EDITABLE_PERIODS = 2;
-  const MORNING_CUTOFF_HOUR = 5;
+  const WORKDAY_START_TIME = "08:35";
   const OVERTIME_START_TIME = "17:00";
   const OVERTIME_START_HOUR = 17;
   const WEEKDAYS = ["日", "月", "火", "水", "木", "金", "土"];
   const BREAKS = [
     { start: "17:00", end: "17:15" },
     { start: "19:15", end: "19:30" },
+  ];
+  const HOLIDAY_BREAKS = [
+    { start: "10:00", end: "10:15" },
+    { start: "11:45", end: "12:30" },
+    { start: "15:00", end: "15:15" },
   ];
 
   let records = [];
@@ -106,21 +111,42 @@
     return Math.floor((overlapEnd - overlapStart) / 60000);
   }
 
-  function calculateOvertimeMinutes(workDate, clockOutDate) {
-    const overtimeStart = combineWorkDateTime(workDate, OVERTIME_START_TIME, false);
-    const clockOut = truncateToMinute(clockOutDate);
-    if (Number.isNaN(overtimeStart.getTime()) || Number.isNaN(clockOut.getTime()) || clockOut <= overtimeStart) {
+  function calculateMinutesAfterBreaks(workDate, startTime, endDate, breakTimes) {
+    const workStart = combineWorkDateTime(workDate, startTime, false);
+    const workEnd = truncateToMinute(endDate);
+    if (Number.isNaN(workStart.getTime()) || Number.isNaN(workEnd.getTime()) || workEnd <= workStart) {
       return 0;
     }
 
-    let minutes = diffMinutes(overtimeStart, clockOut);
-    for (const breakTime of BREAKS) {
+    let minutes = diffMinutes(workStart, workEnd);
+    for (const breakTime of breakTimes) {
       minutes -= overlapMinutes(
-        overtimeStart,
-        clockOut,
+        workStart,
+        workEnd,
         combineWorkDateTime(workDate, breakTime.start, false),
         combineWorkDateTime(workDate, breakTime.end, false)
       );
+    }
+    return Math.max(0, minutes);
+  }
+
+  function calculateEarlyOvertimeMinutes(workDate, earlyStartTime) {
+    const earlyStart = combineWorkDateTime(workDate, earlyStartTime, false);
+    const workdayStart = combineWorkDateTime(workDate, WORKDAY_START_TIME, false);
+    if (Number.isNaN(earlyStart.getTime()) || Number.isNaN(workdayStart.getTime()) || earlyStart >= workdayStart) {
+      return 0;
+    }
+    return diffMinutes(earlyStart, workdayStart);
+  }
+
+  function calculateOvertimeMinutes(workDate, clockOutDate, options = {}) {
+    if (options.holidayWork) {
+      return calculateMinutesAfterBreaks(workDate, WORKDAY_START_TIME, clockOutDate, HOLIDAY_BREAKS);
+    }
+
+    let minutes = calculateMinutesAfterBreaks(workDate, OVERTIME_START_TIME, clockOutDate, BREAKS);
+    if (options.earlyStartTime) {
+      minutes += calculateEarlyOvertimeMinutes(workDate, options.earlyStartTime);
     }
     return Math.max(0, minutes);
   }
@@ -135,6 +161,12 @@
     return remainder === 0 ? `${hours}時間` : `${hours}時間${remainder}分`;
   }
 
+  function formatHoursCompact(minutes) {
+    const safeMinutes = Math.max(0, Math.floor(Number(minutes) || 0));
+    const hours = safeMinutes / 60;
+    return `${hours.toFixed(1).replace(/\.0$/, "")}h`;
+  }
+
   function formatInputTime(date) {
     return `${pad2(date.getHours())}:${pad2(date.getMinutes())}`;
   }
@@ -147,7 +179,7 @@
   function shouldShowChartDateLabel(workDate, hasRecord) {
     const date = parseYmd(workDate);
     const day = date.getDate();
-    return hasRecord || day === 1 || day === 5 || day === 10 || day === 15 || day === 16 || day === 20 || day === 25;
+    return hasRecord || day === 1 || day === 5 || day === 10 || day === 15 || day === 16 || day === 20 || day === 25 || day === 30;
   }
 
   function formatDateWithWeekday(value) {
@@ -179,11 +211,7 @@
   }
 
   function getSuggestedWorkDate(now) {
-    const base = new Date(now);
-    if (base.getHours() < MORNING_CUTOFF_HOUR) {
-      return toYmd(addDays(base, -1));
-    }
-    return toYmd(base);
+    return toYmd(now);
   }
 
   function getPeriodForDate(workDate) {
@@ -276,7 +304,9 @@
             id: record.workDate,
             workDate: record.workDate,
             clockOutAt: clockOut.toISOString(),
-            overtimeMinutes: calculateOvertimeMinutes(record.workDate, clockOut),
+            overtimeMinutes: Number.isFinite(record.overtimeMinutes)
+              ? Math.max(0, Math.floor(record.overtimeMinutes))
+              : calculateOvertimeMinutes(record.workDate, clockOut),
             updatedAt: record.updatedAt || clockOut.toISOString(),
           };
         })
@@ -311,7 +341,9 @@
       id: row.work_date,
       workDate: row.work_date,
       clockOutAt: clockOut.toISOString(),
-      overtimeMinutes: calculateOvertimeMinutes(row.work_date, clockOut),
+      overtimeMinutes: Number.isFinite(row.overtime_minutes)
+        ? Math.max(0, Math.floor(row.overtime_minutes))
+        : calculateOvertimeMinutes(row.work_date, clockOut),
       updatedAt: row.updated_at || row.clock_out_at,
     };
   }
@@ -515,10 +547,41 @@
     elements.clockOutTime.value = formatInputTime(clockOut);
   }
 
+  function setWorkDateBounds() {
+    elements.workDate.min = getEditableStart();
+    elements.workDate.max = toYmd(new Date());
+  }
+
+  function updateSpecialOptions() {
+    const showEarlyStart = elements.earlyWork.checked && !elements.holidayWork.checked;
+    elements.earlyStartField.hidden = !showEarlyStart;
+    elements.earlyStartTime.disabled = !showEarlyStart;
+    elements.earlyWork.disabled = elements.holidayWork.checked;
+    if (elements.holidayWork.checked) {
+      elements.earlyWork.checked = false;
+    }
+  }
+
+  function resetSpecialOptions() {
+    elements.overnightWork.checked = false;
+    elements.holidayWork.checked = false;
+    elements.earlyWork.checked = false;
+    elements.earlyStartTime.value = "08:00";
+    updateSpecialOptions();
+  }
+
+  function getSpecialOptions() {
+    return {
+      nextDay: elements.overnightWork.checked,
+      holidayWork: elements.holidayWork.checked,
+      earlyStartTime: elements.earlyWork.checked && !elements.holidayWork.checked ? elements.earlyStartTime.value : "",
+    };
+  }
+
   function setDefaultFormNow() {
     const now = truncateToMinute(new Date());
     setFormFromClockOut(getSuggestedWorkDate(now), now);
-    elements.regularClockOut.checked = false;
+    resetSpecialOptions();
   }
 
   function shouldOverwrite(workDate, skipConfirm) {
@@ -530,6 +593,10 @@
   }
 
   async function saveRecord(workDate, clockOut, options = {}) {
+    if (workDate > toYmd(new Date())) {
+      setStatus("未来日は保存できません。");
+      return false;
+    }
     if (workDate < getRetentionStart() || workDate > getRetentionEnd()) {
       setStatus("保存できるのは直近1年分までです。");
       return false;
@@ -544,11 +611,15 @@
     }
 
     const clockOutAt = truncateToMinute(clockOut);
+    if (clockOutAt > truncateToMinute(new Date())) {
+      setStatus("未来の退勤時刻は保存できません。");
+      return false;
+    }
     const nextRecord = {
       id: workDate,
       workDate,
       clockOutAt: clockOutAt.toISOString(),
-      overtimeMinutes: calculateOvertimeMinutes(workDate, clockOutAt),
+      overtimeMinutes: calculateOvertimeMinutes(workDate, clockOutAt, options.overtimeOptions || {}),
       updatedAt: new Date().toISOString(),
     };
 
@@ -718,7 +789,7 @@
 
       const total = document.createElement("span");
       total.className = "trend-total";
-      total.textContent = formatMinutes(period.total);
+      total.textContent = formatHoursCompact(period.total);
 
       const track = document.createElement("span");
       track.className = "trend-track";
@@ -766,6 +837,7 @@
 
   function render() {
     periodStart = clampPeriodStart(periodStart);
+    setWorkDateBounds();
     const period = getPeriodFromStart(periodStart);
     const periodRecords = getPeriodRecords();
     const overtimeRecords = periodRecords.filter((record) => record.overtimeMinutes > 0);
@@ -827,7 +899,7 @@
       return;
     }
     setFormFromClockOut(record.workDate, new Date(record.clockOutAt));
-    elements.regularClockOut.checked = record.overtimeMinutes === 0;
+    resetSpecialOptions();
     setEditingMode(record.workDate);
     showHome();
     setStatus(`${formatDateWithWeekday(record.workDate)}を修正中です。`);
@@ -850,17 +922,14 @@
 
   async function handleClockOutNow() {
     const now = truncateToMinute(new Date());
-    let workDate = getSuggestedWorkDate(now);
-    let clockOut = now;
-    if (elements.regularClockOut.checked) {
-      workDate = elements.workDate.value || workDate;
-      clockOut = combineWorkDateTime(workDate, OVERTIME_START_TIME, false);
-    }
+    const overtimeOptions = getSpecialOptions();
+    const workDate = overtimeOptions.nextDay ? toYmd(addDays(now, -1)) : getSuggestedWorkDate(now);
+    const clockOut = now;
 
-    const saved = await saveRecord(workDate, clockOut);
+    const saved = await saveRecord(workDate, clockOut, { overtimeOptions });
     if (saved) {
       setFormFromClockOut(workDate, clockOut);
-      elements.regularClockOut.checked = false;
+      resetSpecialOptions();
     }
   }
 
@@ -868,17 +937,16 @@
     event.preventDefault();
     const workDate = elements.workDate.value;
     const clockOutTime = elements.clockOutTime.value;
-    const clockOut = elements.regularClockOut.checked
-      ? combineWorkDateTime(workDate, OVERTIME_START_TIME, false)
-      : combineWorkDateTime(workDate, clockOutTime, isBeforeOvertimeStart(clockOutTime));
+    const overtimeOptions = getSpecialOptions();
+    const clockOut = combineWorkDateTime(workDate, clockOutTime, overtimeOptions.nextDay);
 
     if (Number.isNaN(clockOut.getTime())) {
       setStatus("勤務日と退勤時刻を入力してください。");
       return;
     }
 
-    if (await saveRecord(workDate, clockOut, { skipConfirm: editingWorkDate === workDate })) {
-      elements.regularClockOut.checked = false;
+    if (await saveRecord(workDate, clockOut, { skipConfirm: editingWorkDate === workDate, overtimeOptions })) {
+      resetSpecialOptions();
     }
   }
 
@@ -952,6 +1020,8 @@
     elements.authForm.addEventListener("submit", handleAuthSubmit);
     elements.syncCloud.addEventListener("click", syncCloudRecords);
     elements.signOut.addEventListener("click", handleSignOut);
+    elements.holidayWork.addEventListener("change", updateSpecialOptions);
+    elements.earlyWork.addEventListener("change", updateSpecialOptions);
     elements.backToList.addEventListener("click", () => {
       showHome({ restoreScroll: true });
     });
@@ -987,10 +1057,14 @@
       syncCloud: document.getElementById("syncCloud"),
       signOut: document.getElementById("signOut"),
       clockOutNow: document.getElementById("clockOutNow"),
-      regularClockOut: document.getElementById("regularClockOut"),
       recordForm: document.getElementById("recordForm"),
       workDate: document.getElementById("workDate"),
       clockOutTime: document.getElementById("clockOutTime"),
+      overnightWork: document.getElementById("overnightWork"),
+      holidayWork: document.getElementById("holidayWork"),
+      earlyWork: document.getElementById("earlyWork"),
+      earlyStartField: document.getElementById("earlyStartField"),
+      earlyStartTime: document.getElementById("earlyStartTime"),
       cancelEdit: document.getElementById("cancelEdit"),
       statusMessage: document.getElementById("statusMessage"),
       prevPeriod: document.getElementById("prevPeriod"),

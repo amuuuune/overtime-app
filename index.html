@@ -39,10 +39,6 @@
           <div class="record-title-row">
             <p class="section-kicker">今日の記録</p>
             <h2 id="record-heading">退勤</h2>
-            <label class="checkbox-line">
-              <input id="regularClockOut" name="regularClockOut" type="checkbox">
-              <span>定時扱い</span>
-            </label>
           </div>
 
           <button class="primary-action" id="clockOutNow" type="button">
@@ -60,14 +56,37 @@
               <input id="clockOutTime" name="clockOutTime" type="time" required>
             </label>
 
-            <p class="input-hint">0:00〜16:59の手入力は、選んだ勤務日の残業終了時刻として集計します。</p>
+            <p class="input-hint">17時前の退勤は0分で記録します。日またぎなどは特殊な勤務から選びます。</p>
+
+            <details class="special-options">
+              <summary>特殊な勤務</summary>
+              <div class="special-grid">
+                <label class="checkbox-line">
+                  <input id="overnightWork" name="overnightWork" type="checkbox">
+                  <span>日またぎ残業</span>
+                </label>
+                <label class="checkbox-line">
+                  <input id="holidayWork" name="holidayWork" type="checkbox">
+                  <span>休日出勤</span>
+                </label>
+                <label class="checkbox-line">
+                  <input id="earlyWork" name="earlyWork" type="checkbox">
+                  <span>早出</span>
+                </label>
+                <label class="early-start-field" id="earlyStartField" hidden>
+                  <span>早出開始</span>
+                  <input id="earlyStartTime" name="earlyStartTime" type="time" value="08:00">
+                </label>
+              </div>
+              <p class="input-hint">休日出勤は8:35開始、10:00〜10:15、11:45〜12:30、15:00〜15:15を休憩として計算します。</p>
+            </details>
 
             <button class="secondary-action" type="submit">手入力で退勤打刻</button>
             <button class="ghost-action" id="cancelEdit" type="button" hidden>修正をキャンセル</button>
           </form>
 
           <p class="status-line" id="statusMessage" role="status" aria-live="polite"></p>
-          <p class="small-note">平均に含めたい定時の日は、定時扱いで打刻します。</p>
+          <p class="small-note">残業なしの日も打刻すると平均に含みます。</p>
         </section>
 
         <section class="summary-panel" aria-labelledby="summary-heading">
