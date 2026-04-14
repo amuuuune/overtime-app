@@ -290,9 +290,14 @@ h3 {
   margin-top: 12px;
 }
 
-.early-start-field {
+.early-punch-panel {
   display: grid;
   gap: 7px;
+}
+
+.compact-action {
+  min-height: 38px;
+  padding-block: 8px;
 }
 
 .manual-form label {

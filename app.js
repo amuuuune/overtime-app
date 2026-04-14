@@ -2,6 +2,7 @@
   "use strict";
 
   const STORAGE_KEY = "overtime-records-v1";
+  const EARLY_START_STORAGE_KEY = "overtime-early-starts-v1";
   const SUPABASE_URL = "https://amijlzfjamcstxchwkud.supabase.co";
   const SUPABASE_PUBLISHABLE_KEY = "sb_publishable_oHGPXeQxwEjeK7HlF9gDZQ_HA39G8y0";
   const CLOUD_TABLE = "overtime_records";
@@ -23,6 +24,7 @@
   ];
 
   let records = [];
+  let earlyStarts = {};
   let periodStart = "";
   let selectedWorkDate = "";
   let editingWorkDate = "";
@@ -326,6 +328,36 @@
     window.localStorage.setItem(STORAGE_KEY, JSON.stringify(records));
   }
 
+  function loadEarlyStarts() {
+    try {
+      const raw = window.localStorage.getItem(EARLY_START_STORAGE_KEY);
+      const parsed = raw ? JSON.parse(raw) : {};
+      if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
+        return {};
+      }
+      const retentionStart = getRetentionStart();
+      const retentionEnd = getRetentionEnd();
+      return Object.fromEntries(
+        Object.entries(parsed).filter(([workDate, time]) => {
+          return workDate >= retentionStart && workDate <= retentionEnd && parseTime(time);
+        })
+      );
+    } catch (error) {
+      return {};
+    }
+  }
+
+  function persistEarlyStarts() {
+    window.localStorage.setItem(EARLY_START_STORAGE_KEY, JSON.stringify(earlyStarts));
+  }
+
+  function clearEarlyStart(workDate) {
+    if (earlyStarts[workDate]) {
+      delete earlyStarts[workDate];
+      persistEarlyStarts();
+    }
+  }
+
   function isCloudSignedIn() {
     return Boolean(supabaseClient && currentUser);
   }
@@ -558,27 +590,36 @@
   }
 
   function updateSpecialOptions() {
-    const showEarlyStart = elements.earlyWork.checked && !elements.holidayWork.checked;
-    elements.earlyStartField.hidden = !showEarlyStart;
-    elements.earlyStartTime.disabled = !showEarlyStart;
     elements.earlyWork.disabled = elements.holidayWork.checked;
     if (elements.holidayWork.checked) {
       elements.earlyWork.checked = false;
     }
+    elements.earlyPunchPanel.hidden = !elements.earlyWork.checked || elements.holidayWork.checked;
+    updateEarlyPunchStatus();
   }
 
   function resetSpecialOptions() {
     elements.holidayWork.checked = false;
     elements.earlyWork.checked = false;
-    elements.earlyStartTime.value = "08:00";
     updateSpecialOptions();
   }
 
-  function getSpecialOptions() {
+  function getSpecialOptions(workDate) {
     return {
       holidayWork: elements.holidayWork.checked,
-      earlyStartTime: elements.earlyWork.checked && !elements.holidayWork.checked ? elements.earlyStartTime.value : "",
+      earlyStartTime: elements.holidayWork.checked ? "" : earlyStarts[workDate] || "",
     };
+  }
+
+  function updateEarlyPunchStatus() {
+    if (!elements || !elements.earlyPunchStatus) {
+      return;
+    }
+    const workDate = elements.workDate.value || getSuggestedWorkDate(new Date());
+    const earlyStart = earlyStarts[workDate];
+    elements.earlyPunchStatus.textContent = earlyStart
+      ? `${formatShortDate(workDate)} ${earlyStart} 出勤打刻済み`
+      : "出勤時に打刻します。退勤時に自動で早出分を加算します。";
   }
 
   function setDefaultFormNow() {
@@ -593,6 +634,27 @@
       return true;
     }
     return window.confirm(`${formatDateWithWeekday(workDate)} の記録があります。上書きしますか？`);
+  }
+
+  function saveEarlyClockIn() {
+    const now = truncateToMinute(new Date());
+    const workDate = getSuggestedWorkDate(now);
+    const startTime = formatInputTime(now);
+    const earlyMinutes = calculateEarlyOvertimeMinutes(workDate, startTime);
+    if (earlyMinutes <= 0) {
+      setStatus("早出出勤は8:35より前に打刻してください。");
+      return;
+    }
+    if (!canEditWorkDate(workDate)) {
+      setStatus("この期間は確定済みのため、早出打刻できません。");
+      return;
+    }
+    earlyStarts[workDate] = startTime;
+    persistEarlyStarts();
+    elements.workDate.value = workDate;
+    elements.earlyWork.checked = true;
+    updateSpecialOptions();
+    setStatus(`${formatDateWithWeekday(workDate)} ${startTime} の早出出勤を記録しました。退勤時に加算します。`);
   }
 
   async function saveRecord(workDate, clockOut, options = {}) {
@@ -631,6 +693,7 @@
       .concat(nextRecord)
       .sort((a, b) => a.workDate.localeCompare(b.workDate));
     records = pruneRecordsByRetention(records);
+    clearEarlyStart(workDate);
     persistRecords();
     periodStart = getPeriodForDate(workDate).start;
     render();
@@ -925,9 +988,13 @@
 
   async function handleClockOutNow() {
     const now = truncateToMinute(new Date());
-    const overtimeOptions = getSpecialOptions();
     const isOvernightWork = shouldTreatAsOvernightWork(formatInputTime(now));
     const workDate = isOvernightWork ? toYmd(addDays(now, -1)) : getSuggestedWorkDate(now);
+    const overtimeOptions = getSpecialOptions(workDate);
+    if (elements.earlyWork.checked && !overtimeOptions.earlyStartTime && !overtimeOptions.holidayWork) {
+      setStatus("早出は先に出勤打刻してください。");
+      return;
+    }
     const clockOut = now;
 
     const saved = await saveRecord(workDate, clockOut, { overtimeOptions });
@@ -941,8 +1008,12 @@
     event.preventDefault();
     const workDate = elements.workDate.value;
     const clockOutTime = elements.clockOutTime.value;
-    const overtimeOptions = getSpecialOptions();
     const isOvernightWork = shouldTreatAsOvernightWork(clockOutTime);
+    const overtimeOptions = getSpecialOptions(workDate);
+    if (elements.earlyWork.checked && !overtimeOptions.earlyStartTime && !overtimeOptions.holidayWork) {
+      setStatus("早出は先に出勤打刻してください。");
+      return;
+    }
     const clockOut = combineWorkDateTime(workDate, clockOutTime, isOvernightWork);
 
     if (Number.isNaN(clockOut.getTime())) {
@@ -1027,6 +1098,7 @@
     elements.signOut.addEventListener("click", handleSignOut);
     elements.holidayWork.addEventListener("change", updateSpecialOptions);
     elements.earlyWork.addEventListener("change", updateSpecialOptions);
+    elements.clockInEarly.addEventListener("click", saveEarlyClockIn);
     elements.backToList.addEventListener("click", () => {
       showHome({ restoreScroll: true });
     });
@@ -1044,6 +1116,7 @@
     elements.workDate.addEventListener("change", () => {
       if (elements.workDate.value) {
         periodStart = clampPeriodStart(getPeriodForDate(elements.workDate.value).start);
+        updateEarlyPunchStatus();
         render();
       }
     });
@@ -1067,8 +1140,9 @@
       clockOutTime: document.getElementById("clockOutTime"),
       holidayWork: document.getElementById("holidayWork"),
       earlyWork: document.getElementById("earlyWork"),
-      earlyStartField: document.getElementById("earlyStartField"),
-      earlyStartTime: document.getElementById("earlyStartTime"),
+      earlyPunchPanel: document.getElementById("earlyPunchPanel"),
+      earlyPunchStatus: document.getElementById("earlyPunchStatus"),
+      clockInEarly: document.getElementById("clockInEarly"),
       cancelEdit: document.getElementById("cancelEdit"),
       statusMessage: document.getElementById("statusMessage"),
       prevPeriod: document.getElementById("prevPeriod"),
@@ -1092,6 +1166,8 @@
       deleteSelectedRecord: document.getElementById("deleteSelectedRecord"),
     };
 
+    earlyStarts = loadEarlyStarts();
+    persistEarlyStarts();
     records = loadRecords();
     persistRecords();
     setDefaultFormNow();

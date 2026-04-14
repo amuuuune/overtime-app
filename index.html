@@ -69,10 +69,10 @@
                   <input id="earlyWork" name="earlyWork" type="checkbox">
                   <span>早出</span>
                 </label>
-                <label class="early-start-field" id="earlyStartField" hidden>
-                  <span>早出開始</span>
-                  <input id="earlyStartTime" name="earlyStartTime" type="time" value="08:00">
-                </label>
+                <div class="early-punch-panel" id="earlyPunchPanel" hidden>
+                  <p class="input-hint" id="earlyPunchStatus">出勤時に打刻します。</p>
+                  <button class="ghost-action compact-action" id="clockInEarly" type="button">出勤打刻</button>
+                </div>
               </div>
               <p class="input-hint">休日出勤は8:35開始、10:00〜10:15、11:45〜12:30、15:00〜15:15、17:00〜17:15、19:15〜19:30を休憩として計算します。</p>
             </details>
