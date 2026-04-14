@@ -3,6 +3,7 @@
 
   const STORAGE_KEY = "overtime-records-v1";
   const EARLY_START_STORAGE_KEY = "overtime-early-starts-v1";
+  const EARLY_START_METADATA_KEY = "pending_early_starts";
   const SUPABASE_URL = "https://amijlzfjamcstxchwkud.supabase.co";
   const SUPABASE_PUBLISHABLE_KEY = "sb_publishable_oHGPXeQxwEjeK7HlF9gDZQ_HA39G8y0";
   const CLOUD_TABLE = "overtime_records";
@@ -328,20 +329,30 @@
     window.localStorage.setItem(STORAGE_KEY, JSON.stringify(records));
   }
 
+  function normalizeEarlyStarts(source) {
+    if (!source || typeof source !== "object" || Array.isArray(source)) {
+      return {};
+    }
+    const retentionStart = getRetentionStart();
+    const retentionEnd = getRetentionEnd();
+    return Object.fromEntries(
+      Object.entries(source).filter(([workDate, time]) => {
+        return workDate >= retentionStart && workDate <= retentionEnd && parseTime(time);
+      })
+    );
+  }
+
+  function earlyStartsEqual(left, right) {
+    const leftEntries = Object.entries(left).sort(([leftDate], [rightDate]) => leftDate.localeCompare(rightDate));
+    const rightEntries = Object.entries(right).sort(([leftDate], [rightDate]) => leftDate.localeCompare(rightDate));
+    return JSON.stringify(leftEntries) === JSON.stringify(rightEntries);
+  }
+
   function loadEarlyStarts() {
     try {
       const raw = window.localStorage.getItem(EARLY_START_STORAGE_KEY);
       const parsed = raw ? JSON.parse(raw) : {};
-      if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
-        return {};
-      }
-      const retentionStart = getRetentionStart();
-      const retentionEnd = getRetentionEnd();
-      return Object.fromEntries(
-        Object.entries(parsed).filter(([workDate, time]) => {
-          return workDate >= retentionStart && workDate <= retentionEnd && parseTime(time);
-        })
-      );
+      return normalizeEarlyStarts(parsed);
     } catch (error) {
       return {};
     }
@@ -351,10 +362,11 @@
     window.localStorage.setItem(EARLY_START_STORAGE_KEY, JSON.stringify(earlyStarts));
   }
 
-  function clearEarlyStart(workDate) {
+  async function clearEarlyStart(workDate) {
     if (earlyStarts[workDate]) {
       delete earlyStarts[workDate];
       persistEarlyStarts();
+      await saveEarlyStartsToCloud();
     }
   }
 
@@ -436,6 +448,52 @@
     return `${action}に失敗しました。SupabaseのSQL作成やログインURL設定を確認してください。${error && error.message ? `（${error.message}）` : ""}`;
   }
 
+  function getCloudEarlyStarts() {
+    return normalizeEarlyStarts(currentUser && currentUser.user_metadata
+      ? currentUser.user_metadata[EARLY_START_METADATA_KEY]
+      : {});
+  }
+
+  async function saveEarlyStartsToCloud() {
+    if (!isCloudSignedIn()) {
+      return true;
+    }
+    const nextMetadata = {
+      ...(currentUser.user_metadata || {}),
+      [EARLY_START_METADATA_KEY]: earlyStarts,
+    };
+    const { data, error } = await supabaseClient.auth.updateUser({ data: nextMetadata });
+    if (error) {
+      renderCloudUi(cloudErrorMessage("早出打刻のクラウド保存", error));
+      return false;
+    }
+    if (data && data.user) {
+      currentUser = data.user;
+    }
+    renderCloudUi();
+    return true;
+  }
+
+  async function syncEarlyStartsFromCloud() {
+    if (!isCloudSignedIn()) {
+      return true;
+    }
+    const { data, error } = await supabaseClient.auth.getUser();
+    if (!error && data && data.user) {
+      currentUser = data.user;
+    }
+    const cloudStarts = getCloudEarlyStarts();
+    const mergedStarts = normalizeEarlyStarts({ ...cloudStarts, ...earlyStarts });
+    const shouldPersistLocal = !earlyStartsEqual(earlyStarts, mergedStarts);
+    const shouldPersistCloud = !earlyStartsEqual(cloudStarts, mergedStarts);
+    earlyStarts = mergedStarts;
+    if (shouldPersistLocal) {
+      persistEarlyStarts();
+      updateEarlyPunchStatus();
+    }
+    return shouldPersistCloud ? saveEarlyStartsToCloud() : true;
+  }
+
   async function syncRecordToCloud(record) {
     if (!isCloudSignedIn()) {
       return true;
@@ -470,10 +528,13 @@
     return true;
   }
 
-  async function syncCloudRecords() {
+  async function syncCloudRecords(options = {}) {
     if (!isCloudSignedIn()) {
       renderCloudUi();
       return false;
+    }
+    if (!options.skipEarlyStartSync) {
+      await syncEarlyStartsFromCloud();
     }
     setCloudBusy(true);
     renderCloudUi("Supabaseと同期中です。");
@@ -535,7 +596,8 @@
     }
     authFormOpen = false;
     renderCloudUi(`${currentUser.email || "ログイン中"} でログインしました。同期します。`);
-    await syncCloudRecords();
+    await syncEarlyStartsFromCloud();
+    await syncCloudRecords({ skipEarlyStartSync: true });
   }
 
   async function initCloud() {
@@ -559,8 +621,13 @@
       await applySession(data.session);
     }
 
-    supabaseClient.auth.onAuthStateChange((_event, session) => {
+    supabaseClient.auth.onAuthStateChange((event, session) => {
       window.setTimeout(() => {
+        if (event === "USER_UPDATED") {
+          currentUser = session && session.user ? session.user : currentUser;
+          renderCloudUi();
+          return;
+        }
         applySession(session);
       }, 0);
     });
@@ -636,7 +703,7 @@
     return window.confirm(`${formatDateWithWeekday(workDate)} の記録があります。上書きしますか？`);
   }
 
-  function saveEarlyClockIn() {
+  async function saveEarlyClockIn() {
     const now = truncateToMinute(new Date());
     const workDate = getSuggestedWorkDate(now);
     const startTime = formatInputTime(now);
@@ -654,7 +721,12 @@
     elements.workDate.value = workDate;
     elements.earlyWork.checked = true;
     updateSpecialOptions();
-    setStatus(`${formatDateWithWeekday(workDate)} ${startTime} の早出出勤を記録しました。退勤時に加算します。`);
+    const shouldSaveCloud = isCloudSignedIn();
+    const synced = await saveEarlyStartsToCloud();
+    const cloudNote = shouldSaveCloud
+      ? (synced ? "クラウドにも保存しました。" : "クラウド保存は失敗しましたが、この端末から退勤時に加算します。")
+      : "";
+    setStatus(`${formatDateWithWeekday(workDate)} ${startTime} の早出出勤を記録しました。退勤時に加算します。${cloudNote}`);
   }
 
   async function saveRecord(workDate, clockOut, options = {}) {
@@ -693,7 +765,7 @@
       .concat(nextRecord)
       .sort((a, b) => a.workDate.localeCompare(b.workDate));
     records = pruneRecordsByRetention(records);
-    clearEarlyStart(workDate);
+    await clearEarlyStart(workDate);
     persistRecords();
     periodStart = getPeriodForDate(workDate).start;
     render();
