@@ -7,6 +7,7 @@
   const SUPABASE_URL = "https://amijlzfjamcstxchwkud.supabase.co";
   const SUPABASE_PUBLISHABLE_KEY = "sb_publishable_oHGPXeQxwEjeK7HlF9gDZQ_HA39G8y0";
   const CLOUD_TABLE = "overtime_records";
+  const VIEW_HISTORY_APP = "overtime-app";
   const RETAINED_PERIODS = 12;
   const EDITABLE_PERIODS = 2;
   const NIGHT_WORK_WARNING_CUTOFF_HOUR = 5;
@@ -641,6 +642,30 @@
     elements.statusMessage.textContent = message;
   }
 
+  function getViewHistoryState(view, data = {}) {
+    return { app: VIEW_HISTORY_APP, view, ...data };
+  }
+
+  function isAppViewHistoryState(state) {
+    return Boolean(state && state.app === VIEW_HISTORY_APP);
+  }
+
+  function replaceViewHistory(state) {
+    if (window.history && window.history.replaceState) {
+      window.history.replaceState(state, "", window.location.href);
+    }
+  }
+
+  function pushViewHistory(state) {
+    if (window.history && window.history.pushState) {
+      window.history.pushState(state, "", window.location.href);
+    }
+  }
+
+  function numberOrFallback(value, fallback) {
+    return Number.isFinite(value) ? value : fallback;
+  }
+
   function setEditingMode(workDate) {
     editingWorkDate = workDate || "";
     elements.cancelEdit.hidden = !editingWorkDate;
@@ -997,7 +1022,7 @@
   }
 
   function showHome(options = {}) {
-    const scrollY = options.restoreScroll ? detailReturnScrollY : 0;
+    const scrollY = numberOrFallback(options.scrollY, options.restoreScroll ? detailReturnScrollY : 0);
     elements.detailView.hidden = true;
     elements.homeView.hidden = false;
     window.requestAnimationFrame(() => {
@@ -1005,7 +1030,7 @@
     });
   }
 
-  function showDetail(workDate) {
+  function showDetail(workDate, options = {}) {
     if (!canEditWorkDate(workDate)) {
       setStatus("この期間は確定済みのため、詳細修正画面は表示しません。");
       return;
@@ -1019,27 +1044,59 @@
     elements.detailClockOut.textContent = formatClockOut(record);
     elements.detailOvertime.textContent = formatMinutes(record.overtimeMinutes);
     elements.detailUpdated.textContent = formatTimestamp(record.updatedAt);
-    detailReturnScrollY = window.scrollY;
+    detailReturnScrollY = numberOrFallback(options.scrollY, window.scrollY);
+    if (!options.fromHistory) {
+      replaceViewHistory(getViewHistoryState("home", { scrollY: detailReturnScrollY }));
+      pushViewHistory(getViewHistoryState("detail", { workDate, scrollY: detailReturnScrollY }));
+    }
     elements.homeView.hidden = true;
     elements.detailView.hidden = false;
     window.scrollTo({ top: 0, behavior: "smooth" });
   }
 
+  function closeDetailToHome(options = {}) {
+    const currentState = window.history ? window.history.state : null;
+    if (isAppViewHistoryState(currentState) && currentState.view === "detail") {
+      replaceViewHistory(getViewHistoryState("home", { scrollY: detailReturnScrollY }));
+    }
+    showHome({ restoreScroll: true, ...options });
+  }
+
+  function handleViewHistoryChange(event) {
+    const state = isAppViewHistoryState(event.state)
+      ? event.state
+      : getViewHistoryState("home", { scrollY: detailReturnScrollY });
+    if (state.view === "detail" && state.workDate) {
+      showDetail(state.workDate, {
+        fromHistory: true,
+        scrollY: numberOrFallback(state.scrollY, detailReturnScrollY),
+      });
+      return;
+    }
+    detailReturnScrollY = numberOrFallback(state.scrollY, detailReturnScrollY);
+    showHome({ restoreScroll: true, scrollY: detailReturnScrollY });
+  }
+
+  function initViewHistory() {
+    replaceViewHistory(getViewHistoryState("home", { scrollY: window.scrollY }));
+    window.addEventListener("popstate", handleViewHistoryChange);
+  }
+
   function editSelectedRecord() {
     const record = getRecordForDate(selectedWorkDate);
     if (!record) {
-      showHome();
+      closeDetailToHome({ restoreScroll: false });
       return;
     }
     if (!canEditWorkDate(record.workDate)) {
       setStatus("この期間は確定済みのため、修正できません。");
-      showHome({ restoreScroll: true });
+      closeDetailToHome({ restoreScroll: true });
       return;
     }
     setFormFromClockOut(record.workDate, new Date(record.clockOutAt));
     resetSpecialOptions();
     setEditingMode(record.workDate);
-    showHome();
+    closeDetailToHome({ restoreScroll: false });
     setStatus(`${formatDateWithWeekday(record.workDate)}を修正中です。`);
     elements.workDate.focus({ preventScroll: true });
   }
@@ -1054,7 +1111,7 @@
     if (await deleteRecord(selectedWorkDate)) {
       selectedWorkDate = "";
       setEditingMode("");
-      showHome({ restoreScroll: true });
+      closeDetailToHome({ restoreScroll: true });
     }
   }
 
@@ -1172,7 +1229,7 @@
     elements.earlyWork.addEventListener("change", updateSpecialOptions);
     elements.clockInEarly.addEventListener("click", saveEarlyClockIn);
     elements.backToList.addEventListener("click", () => {
-      showHome({ restoreScroll: true });
+      closeDetailToHome({ restoreScroll: true });
     });
     elements.editSelectedRecord.addEventListener("click", editSelectedRecord);
     elements.deleteSelectedRecord.addEventListener("click", deleteSelectedRecord);
@@ -1244,6 +1301,7 @@
     persistRecords();
     setDefaultFormNow();
     periodStart = clampPeriodStart(getPeriodForDate(elements.workDate.value).start);
+    initViewHistory();
     wireEvents();
     render();
     initCloud();
