@@ -564,7 +564,7 @@ h3 {
 
 .record-row {
   display: grid;
-  grid-template-columns: minmax(70px, 1fr) minmax(58px, auto) minmax(64px, auto) auto;
+  grid-template-columns: minmax(0, 1fr) 5ch 7.5em 2.2em;
   gap: 8px;
   align-items: center;
   min-height: 46px;
@@ -587,22 +587,27 @@ h3 {
 }
 
 .record-time {
+  min-width: 5ch;
   color: var(--muted);
   font-size: 0.85rem;
+  text-align: right;
   white-space: nowrap;
+  font-variant-numeric: tabular-nums;
 }
 
 .record-total {
-  min-width: 0;
+  min-width: 7.5em;
   text-align: right;
   font-weight: 900;
   white-space: nowrap;
 }
 
 .record-open {
+  min-width: 2.2em;
   color: var(--muted);
   font-size: 0.78rem;
   font-weight: 700;
+  text-align: right;
   white-space: nowrap;
 }
 
@@ -712,7 +717,7 @@ h3 {
   }
 
   .record-row {
-    grid-template-columns: minmax(120px, 1fr) minmax(86px, auto) minmax(86px, auto) auto;
+    grid-template-columns: minmax(0, 1fr) 5ch 8em 2.2em;
   }
 
   .detail-view {
