@@ -19,9 +19,9 @@
     { start: "19:15", end: "19:30" },
   ];
   const HOLIDAY_BREAKS = [
-    { start: "10:00", end: "10:15" },
+    { start: "10:00", end: "10:10" },
     { start: "11:45", end: "12:30" },
-    { start: "15:00", end: "15:15" },
+    { start: "15:00", end: "15:10" },
     ...BREAKS,
   ];
 
