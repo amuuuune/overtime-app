@@ -3,6 +3,7 @@
   --page: #f6f7f9;
   --surface: #ffffff;
   --surface-strong: #ebf8f0;
+  --workday-track: #e3f5ea;
   --ink: #171717;
   --muted: #626262;
   --line: #d9dee3;
@@ -70,7 +71,7 @@ input:focus-visible {
 }
 
 .topbar {
-  padding-top: max(28px, env(safe-area-inset-top));
+  padding-block: max(16px, env(safe-area-inset-top)) 14px;
 }
 
 .eyebrow,
@@ -98,8 +99,7 @@ h3 {
 }
 
 h1 {
-  margin-top: 4px;
-  font-size: 2rem;
+  font-size: 1.28rem;
 }
 
 h2 {
@@ -196,6 +196,11 @@ h3 {
 .action-panel {
   display: grid;
   gap: 18px;
+}
+
+.summary-panel {
+  display: grid;
+  gap: 12px;
 }
 
 .record-title-row {
@@ -348,15 +353,35 @@ h3 {
   gap: 12px;
 }
 
+.period-row {
+  grid-template-columns: 34px minmax(0, 1fr) 34px;
+  align-items: center;
+  gap: 8px;
+}
+
+.period-row h2 {
+  margin-top: 0;
+  font-size: 0.98rem;
+  line-height: 1.2;
+  text-align: center;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
 .period-row .ghost-action {
   width: 100%;
+  min-height: 34px;
+  padding: 4px 8px;
+  font-size: 1.1rem;
+  line-height: 1;
 }
 
 .summary-grid {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
   gap: 1px;
-  margin-top: 18px;
+  margin-top: 0;
   overflow: hidden;
   border: 1px solid var(--line);
   border-radius: 8px;
@@ -543,7 +568,7 @@ h3 {
 }
 
 .chart-bar.has-record .bar-track {
-  background: var(--surface-strong);
+  background: var(--workday-track);
 }
 
 .chart-bar.has-record .bar-label {
@@ -695,19 +720,6 @@ h3 {
 
   .input-hint {
     grid-column: 1 / -1;
-  }
-
-  .period-row {
-    grid-template-columns: auto minmax(0, 1fr) auto;
-    align-items: center;
-  }
-
-  .period-row div {
-    text-align: center;
-  }
-
-  .period-row .ghost-action {
-    width: auto;
   }
 
   .records-heading-row {
