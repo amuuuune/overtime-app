@@ -188,7 +188,8 @@
   function shouldShowChartDateLabel(workDate, hasRecord) {
     const date = parseYmd(workDate);
     const day = date.getDate();
-    return hasRecord || day === 1 || day === 5 || day === 10 || day === 15 || day === 16 || day === 20 || day === 25 || day === 30;
+    const isGuideDate = day === 1 || day === 5 || day === 10 || day === 15 || day === 16 || day === 20 || day === 25 || day === 30;
+    return hasRecord || (workDate >= toYmd(new Date()) && isGuideDate);
   }
 
   function formatDateWithWeekday(value) {

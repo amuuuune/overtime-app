@@ -542,11 +542,6 @@ h3 {
   background: #f3f5f7;
 }
 
-.chart-bar.has-record.is-zero .bar-track {
-  border: 1px solid color-mix(in srgb, var(--accent) 35%, var(--line));
-  background: var(--surface-strong);
-}
-
 .bar-label {
   display: grid;
   place-items: center;
