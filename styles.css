@@ -206,17 +206,6 @@ h3 {
   gap: var(--section-gap);
 }
 
-.record-title-row {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
-  gap: var(--caption-gap) var(--field-gap);
-  align-items: end;
-}
-
-.record-title-row .section-kicker {
-  grid-column: 1 / -1;
-}
-
 .primary-action,
 .secondary-action,
 .ghost-action,
@@ -353,8 +342,7 @@ h3 {
   display: none;
 }
 
-.period-row,
-.records-heading-row {
+.period-row {
   display: grid;
   grid-template-columns: 1fr;
   gap: var(--field-gap);
@@ -448,11 +436,9 @@ h3 {
 
 .trend-heading {
   display: grid;
-  gap: var(--field-gap);
+  gap: var(--caption-gap);
 }
 
-.records-heading-row > div,
-.trend-heading > div,
 .detail-title-row {
   display: grid;
   gap: var(--caption-gap);
@@ -617,8 +603,8 @@ h3 {
   white-space: nowrap;
 }
 
-.chart-note {
-  margin: 8px 0 0;
+.trend-note {
+  margin: 0;
   color: var(--muted);
   font-size: 0.78rem;
 }
@@ -756,11 +742,6 @@ h3 {
 
   .input-hint {
     grid-column: 1 / -1;
-  }
-
-  .records-heading-row {
-    grid-template-columns: minmax(0, 1fr) auto;
-    align-items: end;
   }
 
   .trend-heading {

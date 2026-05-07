@@ -7,7 +7,7 @@
   const SUPABASE_URL = "https://amijlzfjamcstxchwkud.supabase.co";
   const SUPABASE_PUBLISHABLE_KEY = "sb_publishable_oHGPXeQxwEjeK7HlF9gDZQ_HA39G8y0";
   const CLOUD_TABLE = "overtime_records";
-  const APP_VERSION = "v31";
+  const APP_VERSION = "v32";
   const VIEW_HISTORY_APP = "overtime-app";
   const RETAINED_PERIODS = 12;
   const EDITABLE_PERIODS = 2;
@@ -926,12 +926,7 @@
       scroll.append(bar);
     }
 
-    const note = document.createElement("p");
-    note.className = "chart-note";
-    note.textContent = periodEditable
-      ? "記録済みの日は棒をタップすると詳細を確認できます。"
-      : "この期間は確定済みのため、修正用のタップ操作はありません。";
-    elements.recordsChart.append(scroll, note);
+    elements.recordsChart.append(scroll);
   }
 
   function renderTrendChart() {
@@ -980,7 +975,6 @@
     elements.recordsModeNote.textContent = periodEditable
       ? ""
       : "2カ月前になった期間は確定済みとして、一覧と修正・削除を表示しません。";
-    elements.recordsHint.textContent = periodEditable ? "行をタップして修正・削除" : "確定済み";
     elements.recordsList.hidden = !periodEditable;
     if (!periodEditable) {
       return;
@@ -1294,7 +1288,6 @@
       averageOvertime: document.getElementById("averageOvertime"),
       trendChart: document.getElementById("trendChart"),
       recordsChart: document.getElementById("recordsChart"),
-      recordsHint: document.getElementById("recordsHint"),
       recordsModeNote: document.getElementById("recordsModeNote"),
       recordsList: document.getElementById("recordsList"),
       recordItemTemplate: document.getElementById("recordItemTemplate"),

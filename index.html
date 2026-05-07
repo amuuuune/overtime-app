@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta name="theme-color" content="#f6f7f9">
     <title>残業管理ツール</title>
-    <link rel="stylesheet" href="styles.css?v=31">
+    <link rel="stylesheet" href="styles.css?v=32">
     <link rel="manifest" href="manifest.webmanifest">
     <link rel="icon" type="image/png" sizes="192x192" href="icons/icon-192.png">
     <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
@@ -58,12 +58,7 @@
           </div>
         </section>
 
-        <section class="action-panel" aria-labelledby="record-heading">
-          <div class="record-title-row">
-            <p class="section-kicker">今日の記録</p>
-            <h2 id="record-heading">退勤</h2>
-          </div>
-
+        <section class="action-panel" aria-label="退勤打刻">
           <button class="primary-action" id="clockOutNow" type="button">
             退勤打刻
           </button>
@@ -102,14 +97,7 @@
           <p class="status-line" id="statusMessage" role="status" aria-live="polite"></p>
         </section>
 
-        <section class="records-panel" aria-labelledby="records-heading">
-          <div class="records-heading-row">
-            <div>
-              <p class="section-kicker">勤務日ベース</p>
-              <h2 id="records-heading">この期間の記録</h2>
-            </div>
-            <p class="small-note" id="recordsHint">行をタップして修正・削除</p>
-          </div>
+        <section class="records-panel" aria-label="期間の記録">
           <div class="period-row records-period-row">
             <button class="ghost-action js-prev-period" type="button" aria-label="前の期間">‹</button>
             <p class="records-period-label" id="recordsPeriodLabel"></p>
@@ -119,13 +107,10 @@
           <div class="chart-wrap" id="recordsChart" role="group" aria-label="この期間の残業時間グラフ"></div>
           <div class="trend-block">
             <div class="trend-heading">
-              <div>
-                <p class="section-kicker">月ごと</p>
-                <h3>1年の推移</h3>
-              </div>
-              <p class="small-note">棒をタップして期間を切り替え</p>
+              <h3>1年の推移</h3>
             </div>
             <div class="trend-chart" id="trendChart" role="group" aria-label="1年分の月別残業時間"></div>
+            <p class="small-note trend-note">棒をタップして期間を切り替え</p>
           </div>
           <p class="small-note records-mode-note" id="recordsModeNote"></p>
           <div class="records-list" id="recordsList"></div>
@@ -169,6 +154,6 @@
     </template>
 
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2" defer></script>
-    <script src="app.js?v=31" defer></script>
+    <script src="app.js?v=32" defer></script>
   </body>
 </html>
