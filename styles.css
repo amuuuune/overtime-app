@@ -11,6 +11,9 @@
   --accent-pressed: #167841;
   --warning: #b42318;
   --focus: #0f7a78;
+  --section-gap: 16px;
+  --field-gap: 12px;
+  --tight-gap: 8px;
 }
 
 * {
@@ -119,13 +122,13 @@ h3 {
 
 .cloud-panel {
   display: grid;
-  gap: 10px;
+  gap: var(--tight-gap);
   padding-block: 10px;
 }
 
 .cloud-compact-row {
   display: flex;
-  gap: 8px;
+  gap: var(--tight-gap);
   align-items: center;
   min-width: 0;
 }
@@ -166,7 +169,7 @@ h3 {
 
 .auth-form {
   display: grid;
-  gap: 10px;
+  gap: var(--field-gap);
 }
 
 .auth-form label {
@@ -193,14 +196,11 @@ h3 {
   margin-top: -2px;
 }
 
-.action-panel {
+.action-panel,
+.summary-panel,
+.records-panel {
   display: grid;
-  gap: 14px;
-}
-
-.summary-panel {
-  display: grid;
-  gap: 12px;
+  gap: var(--section-gap);
 }
 
 .record-title-row {
@@ -257,7 +257,7 @@ h3 {
 
 .manual-form {
   display: grid;
-  gap: 12px;
+  gap: var(--field-gap);
 }
 
 .checkbox-line {
@@ -291,7 +291,7 @@ h3 {
 
 .special-grid {
   display: grid;
-  gap: 8px;
+  gap: var(--tight-gap);
   margin-top: 10px;
 }
 
@@ -354,7 +354,7 @@ h3 {
 .records-heading-row {
   display: grid;
   grid-template-columns: 1fr;
-  gap: 12px;
+  gap: var(--field-gap);
 }
 
 .period-row {
@@ -374,7 +374,7 @@ h3 {
 }
 
 .records-period-row {
-  margin-top: 12px;
+  margin-top: 0;
 }
 
 .records-period-label {
@@ -438,7 +438,9 @@ h3 {
 }
 
 .trend-block {
-  margin-top: 22px;
+  display: grid;
+  gap: var(--field-gap);
+  margin-top: 0;
 }
 
 .trend-heading {
@@ -451,7 +453,7 @@ h3 {
   grid-template-columns: repeat(12, minmax(0, 1fr));
   align-items: end;
   gap: 3px;
-  margin-top: 12px;
+  margin-top: 0;
   min-height: 158px;
   padding: 8px 0 6px;
   border-bottom: 1px solid var(--line);
@@ -519,7 +521,7 @@ h3 {
 }
 
 .records-mode-note {
-  margin-top: 12px;
+  margin-top: 0;
 }
 
 .records-panel {
@@ -529,11 +531,11 @@ h3 {
 .records-list {
   display: grid;
   gap: 6px;
-  margin-top: 16px;
+  margin-top: 0;
 }
 
 .chart-wrap {
-  margin-top: 16px;
+  margin-top: 0;
 }
 
 .chart-scroll {
@@ -672,18 +674,22 @@ h3 {
 }
 
 .detail-view {
+  display: grid;
+  align-content: start;
+  gap: var(--section-gap);
   min-height: 100vh;
   padding: max(28px, env(safe-area-inset-top)) 18px 24px;
 }
 
 .back-action {
-  margin-bottom: 22px;
+  justify-self: start;
+  margin-bottom: 0;
 }
 
 .detail-grid {
   display: grid;
   gap: 10px;
-  margin: 22px 0 0;
+  margin: 0;
 }
 
 .detail-grid div {
@@ -710,7 +716,7 @@ h3 {
 .detail-actions {
   display: grid;
   gap: 10px;
-  margin-top: 28px;
+  margin-top: 4px;
 }
 
 @media (min-width: 560px) {
