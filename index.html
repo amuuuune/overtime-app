@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta name="theme-color" content="#f6f7f9">
     <title>残業管理ツール</title>
-    <link rel="stylesheet" href="styles.css?v=26">
+    <link rel="stylesheet" href="styles.css?v=27">
     <link rel="manifest" href="manifest.webmanifest">
     <link rel="icon" type="image/png" sizes="192x192" href="icons/icon-192.png">
     <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
@@ -56,8 +56,6 @@
               <strong id="averageOvertime">0分</strong>
             </div>
           </div>
-
-          <p class="small-note center">平均は打刻した日数で計算します。未打刻日は休日扱いです。</p>
         </section>
 
         <section class="action-panel" aria-labelledby="record-heading">
@@ -80,9 +78,6 @@
               <span>退勤時刻</span>
               <input id="clockOutTime" name="clockOutTime" type="time" required>
             </label>
-
-            <p class="input-hint">17時前の退勤は0分で記録します。深夜帯は残業か確認します。</p>
-
             <details class="special-options">
               <summary>特殊な勤務</summary>
               <div class="special-grid">
@@ -99,15 +94,12 @@
                   <button class="ghost-action compact-action" id="clockInEarly" type="button">出勤打刻</button>
                 </div>
               </div>
-              <p class="input-hint">休日出勤は8:35開始、10:00〜10:10、11:45〜12:30、15:00〜15:10、17:00〜17:15、19:15〜19:30を休憩として計算します。</p>
             </details>
 
             <button class="secondary-action" type="submit">手入力で退勤打刻</button>
             <button class="ghost-action" id="cancelEdit" type="button" hidden>修正をキャンセル</button>
           </form>
-
           <p class="status-line" id="statusMessage" role="status" aria-live="polite"></p>
-          <p class="small-note">残業なしの日も打刻すると平均に含みます。</p>
         </section>
 
         <section class="records-panel" aria-labelledby="records-heading">
@@ -175,6 +167,6 @@
     </template>
 
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2" defer></script>
-    <script src="app.js?v=26" defer></script>
+    <script src="app.js?v=27" defer></script>
   </body>
 </html>
