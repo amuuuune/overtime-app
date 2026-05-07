@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta name="theme-color" content="#f6f7f9">
     <title>残業管理ツール</title>
-    <link rel="stylesheet" href="styles.css?v=29">
+    <link rel="stylesheet" href="styles.css?v=31">
     <link rel="manifest" href="manifest.webmanifest">
     <link rel="icon" type="image/png" sizes="192x192" href="icons/icon-192.png">
     <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
@@ -134,8 +134,10 @@
 
       <section class="detail-view" id="detailView" aria-labelledby="detail-heading" hidden>
         <button class="ghost-action back-action" id="backToList" type="button">一覧へ戻る</button>
-        <p class="section-kicker">記録詳細</p>
-        <h2 id="detail-heading"></h2>
+        <div class="detail-title-row">
+          <p class="section-kicker">記録詳細</p>
+          <h2 id="detail-heading"></h2>
+        </div>
         <dl class="detail-grid">
           <div>
             <dt>退勤</dt>
@@ -167,6 +169,6 @@
     </template>
 
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2" defer></script>
-    <script src="app.js?v=29" defer></script>
+    <script src="app.js?v=31" defer></script>
   </body>
 </html>

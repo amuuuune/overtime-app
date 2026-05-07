@@ -14,6 +14,9 @@
   --section-gap: 16px;
   --field-gap: 12px;
   --tight-gap: 8px;
+  --control-gap: 6px;
+  --caption-gap: 4px;
+  --panel-y: 18px;
 }
 
 * {
@@ -69,7 +72,7 @@ input:focus-visible {
 .action-panel,
 .summary-panel,
 .records-panel {
-  padding: 24px 18px;
+  padding: var(--panel-y) 18px;
   border-bottom: 1px solid var(--line);
 }
 
@@ -106,12 +109,12 @@ h1 {
 }
 
 h2 {
-  margin-top: 4px;
+  margin-top: 0;
   font-size: 1.35rem;
 }
 
 h3 {
-  margin-top: 4px;
+  margin-top: 0;
   font-size: 1.05rem;
 }
 
@@ -174,7 +177,7 @@ h3 {
 
 .auth-form label {
   display: grid;
-  gap: 7px;
+  gap: var(--control-gap);
   color: var(--muted);
   font-size: 0.9rem;
   font-weight: 700;
@@ -206,7 +209,7 @@ h3 {
 .record-title-row {
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;
-  gap: 8px 12px;
+  gap: var(--caption-gap) var(--field-gap);
   align-items: end;
 }
 
@@ -263,7 +266,7 @@ h3 {
 .checkbox-line {
   align-items: center;
   display: flex;
-  gap: 6px;
+  gap: var(--control-gap);
   min-height: 28px;
   color: var(--ink);
   font-size: 0.8rem;
@@ -278,8 +281,8 @@ h3 {
 }
 
 .special-options {
-  border-top: 1px solid var(--line);
-  padding-top: 6px;
+  margin-top: 6px;
+  padding-top: 0;
 }
 
 .special-options summary {
@@ -297,7 +300,7 @@ h3 {
 
 .early-punch-panel {
   display: grid;
-  gap: 7px;
+  gap: var(--control-gap);
 }
 
 .compact-action {
@@ -307,7 +310,7 @@ h3 {
 
 .manual-form label {
   display: grid;
-  gap: 7px;
+  gap: var(--control-gap);
   color: var(--muted);
   font-size: 0.9rem;
   font-weight: 700;
@@ -360,7 +363,7 @@ h3 {
 .period-row {
   grid-template-columns: 34px minmax(0, 1fr) 34px;
   align-items: center;
-  gap: 8px;
+  gap: var(--tight-gap);
 }
 
 .period-row h2 {
@@ -426,7 +429,7 @@ h3 {
 }
 
 .summary-grid strong {
-  margin-top: 5px;
+  margin-top: var(--caption-gap);
   font-size: 1rem;
   line-height: 1.2;
   overflow-wrap: anywhere;
@@ -445,7 +448,14 @@ h3 {
 
 .trend-heading {
   display: grid;
-  gap: 8px;
+  gap: var(--field-gap);
+}
+
+.records-heading-row > div,
+.trend-heading > div,
+.detail-title-row {
+  display: grid;
+  gap: var(--caption-gap);
 }
 
 .trend-chart {

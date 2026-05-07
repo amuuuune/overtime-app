@@ -1,9 +1,9 @@
-const CACHE_NAME = "overtime-app-v29";
+const CACHE_NAME = "overtime-app-v31";
 const APP_SHELL = [
   "./",
   "./index.html",
-  "./styles.css?v=29",
-  "./app.js?v=29",
+  "./styles.css?v=31",
+  "./app.js?v=31",
   "./manifest.webmanifest",
   "./icons/icon-192.png",
   "./icons/icon-512.png",
