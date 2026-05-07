@@ -1,14 +1,15 @@
-const CACHE_NAME = "overtime-app-v23";
+const CACHE_NAME = "overtime-app-v24";
 const APP_SHELL = [
   "./",
   "./index.html",
-  "./styles.css",
-  "./app.js",
+  "./styles.css?v=24",
+  "./app.js?v=24",
   "./manifest.webmanifest",
   "./icons/icon-192.png",
   "./icons/icon-512.png",
   "./icons/apple-touch-icon.png",
 ];
+const NETWORK_FIRST_DESTINATIONS = new Set(["document", "style", "script", "worker"]);
 
 self.addEventListener("install", (event) => {
   event.waitUntil(
@@ -31,12 +32,29 @@ self.addEventListener("fetch", (event) => {
     return;
   }
 
+  const requestUrl = new URL(event.request.url);
+  const sameOrigin = requestUrl.origin === self.location.origin;
+  const networkFirst = sameOrigin && (
+    event.request.mode === "navigate" ||
+    NETWORK_FIRST_DESTINATIONS.has(event.request.destination)
+  );
+
+  if (networkFirst) {
+    event.respondWith(
+      fetch(event.request).then((response) => {
+        const copy = response.clone();
+        caches.open(CACHE_NAME).then((cache) => {
+          cache.put(event.request, copy);
+        });
+        return response;
+      }).catch(() =>
+        caches.match(event.request).then((cached) => cached || caches.match("./index.html"))
+      )
+    );
+    return;
+  }
+
   event.respondWith(
-    caches.match(event.request).then((cached) => {
-      if (cached) {
-        return cached;
-      }
-      return fetch(event.request);
-    })
+    caches.match(event.request).then((cached) => cached || fetch(event.request))
   );
 });

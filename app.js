@@ -7,6 +7,7 @@
   const SUPABASE_URL = "https://amijlzfjamcstxchwkud.supabase.co";
   const SUPABASE_PUBLISHABLE_KEY = "sb_publishable_oHGPXeQxwEjeK7HlF9gDZQ_HA39G8y0";
   const CLOUD_TABLE = "overtime_records";
+  const APP_VERSION = "v24";
   const VIEW_HISTORY_APP = "overtime-app";
   const RETAINED_PERIODS = 12;
   const EDITABLE_PERIODS = 2;
@@ -1320,11 +1321,28 @@
     module.exports = testApi;
   }
 
+  function registerServiceWorker() {
+    if (!("serviceWorker" in navigator) || window.location.protocol === "file:") {
+      return;
+    }
+    let reloadingForUpdate = false;
+    navigator.serviceWorker.addEventListener("controllerchange", () => {
+      const refreshKey = `overtime-app-refreshed-${APP_VERSION}`;
+      if (reloadingForUpdate || window.sessionStorage.getItem(refreshKey)) {
+        return;
+      }
+      reloadingForUpdate = true;
+      window.sessionStorage.setItem(refreshKey, "1");
+      window.location.reload();
+    });
+    navigator.serviceWorker.register("service-worker.js").then((registration) => {
+      registration.update().catch(() => {});
+    }).catch(() => {});
+  }
+
   if (typeof window !== "undefined") {
     window.OvertimeApp = testApi;
-    if ("serviceWorker" in navigator && window.location.protocol !== "file:") {
-      navigator.serviceWorker.register("service-worker.js").catch(() => {});
-    }
+    registerServiceWorker();
     if (document.readyState === "loading") {
       document.addEventListener("DOMContentLoaded", init);
     } else {
