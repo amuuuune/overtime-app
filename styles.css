@@ -369,6 +369,22 @@ h3 {
   text-overflow: ellipsis;
 }
 
+.records-period-row {
+  margin-top: 12px;
+}
+
+.records-period-label {
+  margin: 0;
+  color: var(--ink);
+  font-size: 0.9rem;
+  font-weight: 800;
+  line-height: 1.2;
+  text-align: center;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
 .period-row .ghost-action {
   width: 100%;
   min-height: 34px;

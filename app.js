@@ -7,7 +7,7 @@
   const SUPABASE_URL = "https://amijlzfjamcstxchwkud.supabase.co";
   const SUPABASE_PUBLISHABLE_KEY = "sb_publishable_oHGPXeQxwEjeK7HlF9gDZQ_HA39G8y0";
   const CLOUD_TABLE = "overtime_records";
-  const APP_VERSION = "v25";
+  const APP_VERSION = "v26";
   const VIEW_HISTORY_APP = "overtime-app";
   const RETAINED_PERIODS = 12;
   const EDITABLE_PERIODS = 2;
@@ -1010,11 +1010,16 @@
     const average = periodRecords.length ? Math.floor(total / periodRecords.length) : 0;
 
     elements.summaryHeading.textContent = formatPeriod(period.start, period.end);
+    elements.recordsPeriodLabel.textContent = formatPeriod(period.start, period.end);
     elements.totalOvertime.textContent = formatMinutes(total);
     elements.recordCount.textContent = `${overtimeRecords.length}日`;
     elements.averageOvertime.textContent = formatMinutes(average);
-    elements.prevPeriod.disabled = periodStart <= getRetentionStart();
-    elements.nextPeriod.disabled = periodStart >= getCurrentPeriodStart();
+    for (const button of elements.prevPeriodButtons) {
+      button.disabled = periodStart <= getRetentionStart();
+    }
+    for (const button of elements.nextPeriodButtons) {
+      button.disabled = periodStart >= getCurrentPeriodStart();
+    }
     renderTrendChart();
     renderChart(periodRecords);
     renderRecordsList(periodRecords);
@@ -1236,14 +1241,18 @@
     elements.editSelectedRecord.addEventListener("click", editSelectedRecord);
     elements.deleteSelectedRecord.addEventListener("click", deleteSelectedRecord);
     elements.cancelEdit.addEventListener("click", cancelEdit);
-    elements.prevPeriod.addEventListener("click", () => {
-      periodStart = clampPeriodStart(shiftPeriod(periodStart, -1));
-      render();
-    });
-    elements.nextPeriod.addEventListener("click", () => {
-      periodStart = clampPeriodStart(shiftPeriod(periodStart, 1));
-      render();
-    });
+    for (const button of elements.prevPeriodButtons) {
+      button.addEventListener("click", () => {
+        periodStart = clampPeriodStart(shiftPeriod(periodStart, -1));
+        render();
+      });
+    }
+    for (const button of elements.nextPeriodButtons) {
+      button.addEventListener("click", () => {
+        periodStart = clampPeriodStart(shiftPeriod(periodStart, 1));
+        render();
+      });
+    }
     elements.workDate.addEventListener("change", () => {
       if (elements.workDate.value) {
         periodStart = clampPeriodStart(getPeriodForDate(elements.workDate.value).start);
@@ -1276,9 +1285,10 @@
       clockInEarly: document.getElementById("clockInEarly"),
       cancelEdit: document.getElementById("cancelEdit"),
       statusMessage: document.getElementById("statusMessage"),
-      prevPeriod: document.getElementById("prevPeriod"),
-      nextPeriod: document.getElementById("nextPeriod"),
+      prevPeriodButtons: Array.from(document.querySelectorAll(".js-prev-period")),
+      nextPeriodButtons: Array.from(document.querySelectorAll(".js-next-period")),
       summaryHeading: document.getElementById("summary-heading"),
+      recordsPeriodLabel: document.getElementById("recordsPeriodLabel"),
       totalOvertime: document.getElementById("totalOvertime"),
       recordCount: document.getElementById("recordCount"),
       averageOvertime: document.getElementById("averageOvertime"),

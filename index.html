@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta name="theme-color" content="#f6f7f9">
     <title>残業管理ツール</title>
-    <link rel="stylesheet" href="styles.css?v=25">
+    <link rel="stylesheet" href="styles.css?v=26">
     <link rel="manifest" href="manifest.webmanifest">
     <link rel="icon" type="image/png" sizes="192x192" href="icons/icon-192.png">
     <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
@@ -37,9 +37,9 @@
 
         <section class="summary-panel" aria-labelledby="summary-heading">
           <div class="period-row">
-            <button class="ghost-action" id="prevPeriod" type="button" aria-label="前の期間">‹</button>
+            <button class="ghost-action js-prev-period" type="button" aria-label="前の期間">‹</button>
             <h2 id="summary-heading"></h2>
-            <button class="ghost-action" id="nextPeriod" type="button" aria-label="次の期間">›</button>
+            <button class="ghost-action js-next-period" type="button" aria-label="次の期間">›</button>
           </div>
 
           <div class="summary-grid">
@@ -118,6 +118,11 @@
             </div>
             <p class="small-note" id="recordsHint">行をタップして修正・削除</p>
           </div>
+          <div class="period-row records-period-row">
+            <button class="ghost-action js-prev-period" type="button" aria-label="前の期間">‹</button>
+            <p class="records-period-label" id="recordsPeriodLabel"></p>
+            <button class="ghost-action js-next-period" type="button" aria-label="次の期間">›</button>
+          </div>
 
           <div class="chart-wrap" id="recordsChart" role="group" aria-label="この期間の残業時間グラフ"></div>
           <div class="trend-block">
@@ -170,6 +175,6 @@
     </template>
 
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2" defer></script>
-    <script src="app.js?v=25" defer></script>
+    <script src="app.js?v=26" defer></script>
   </body>
 </html>
