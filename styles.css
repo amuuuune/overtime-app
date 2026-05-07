@@ -542,6 +542,15 @@ h3 {
   background: #f3f5f7;
 }
 
+.chart-bar.has-record .bar-track {
+  border: 1px solid color-mix(in srgb, var(--accent) 55%, var(--line));
+}
+
+.chart-bar.has-record .bar-label {
+  color: var(--ink);
+  font-weight: 800;
+}
+
 .bar-label {
   display: grid;
   place-items: center;
