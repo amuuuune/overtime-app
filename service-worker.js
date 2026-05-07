@@ -1,4 +1,4 @@
-const CACHE_NAME = "overtime-app-v21";
+const CACHE_NAME = "overtime-app-v22";
 const APP_SHELL = [
   "./",
   "./index.html",

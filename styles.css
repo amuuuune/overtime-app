@@ -521,7 +521,7 @@ h3 {
   display: flex;
   align-items: end;
   width: 100%;
-  max-width: 10px;
+  max-width: 12px;
   height: 100%;
   border-radius: 8px;
   background: #eef1f4;
@@ -543,7 +543,7 @@ h3 {
 }
 
 .chart-bar.has-record .bar-track {
-  border: 1px solid color-mix(in srgb, var(--accent) 55%, var(--line));
+  border: 2px solid var(--accent);
 }
 
 .chart-bar.has-record .bar-label {
