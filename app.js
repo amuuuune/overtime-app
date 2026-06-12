@@ -7,7 +7,7 @@
   const SUPABASE_URL = "https://amijlzfjamcstxchwkud.supabase.co";
   const SUPABASE_PUBLISHABLE_KEY = "sb_publishable_oHGPXeQxwEjeK7HlF9gDZQ_HA39G8y0";
   const CLOUD_TABLE = "overtime_records";
-  const APP_VERSION = "v32";
+  const APP_VERSION = "v33";
   const VIEW_HISTORY_APP = "overtime-app";
   const RETAINED_PERIODS = 12;
   const EDITABLE_PERIODS = 2;
@@ -15,9 +15,13 @@
   const WORKDAY_START_TIME = "08:35";
   const OVERTIME_START_TIME = "17:00";
   const WEEKDAYS = ["日", "月", "火", "水", "木", "金", "土"];
-  const BREAKS = [
+  const LEGACY_BREAKS = [
     { start: "17:00", end: "17:15" },
     { start: "19:15", end: "19:30" },
+  ];
+  const BREAKS = [
+    ...LEGACY_BREAKS,
+    { start: "21:30", end: "21:45" },
   ];
   const HOLIDAY_BREAKS = [
     { start: "10:00", end: "10:10" },
@@ -149,12 +153,16 @@
     return diffMinutes(earlyStart, workdayStart);
   }
 
+  function calculateStandardOvertimeMinutes(workDate, clockOutDate, breakTimes = BREAKS) {
+    return calculateMinutesAfterBreaks(workDate, OVERTIME_START_TIME, clockOutDate, breakTimes);
+  }
+
   function calculateOvertimeMinutes(workDate, clockOutDate, options = {}) {
     if (options.holidayWork) {
       return calculateMinutesAfterBreaks(workDate, WORKDAY_START_TIME, clockOutDate, HOLIDAY_BREAKS);
     }
 
-    let minutes = calculateMinutesAfterBreaks(workDate, OVERTIME_START_TIME, clockOutDate, BREAKS);
+    let minutes = calculateStandardOvertimeMinutes(workDate, clockOutDate);
     if (options.earlyStartTime) {
       minutes += calculateEarlyOvertimeMinutes(workDate, options.earlyStartTime);
     }
@@ -569,7 +577,10 @@
         .map(fromCloudRecord)
         .filter((record) => !Number.isNaN(new Date(record.clockOutAt).getTime()));
       records = pruneRecordsByRetention(mergeRecordsByDate(records, cloudRecords));
-      persistRecords();
+      const recalculatedRecord = recalculateTodayForCurrentBreaks();
+      if (!recalculatedRecord) {
+        persistRecords();
+      }
 
       if (records.length > 0) {
         const { error: upsertError } = await supabaseClient
@@ -583,6 +594,9 @@
       }
 
       render();
+      if (recalculatedRecord) {
+        setStatus(`${formatDateWithWeekday(recalculatedRecord.workDate)}を新しい休憩時間で${formatMinutes(recalculatedRecord.overtimeMinutes)}に更新しました。`);
+      }
       renderCloudUi();
       return true;
     } finally {
@@ -638,6 +652,34 @@
 
   function getRecordForDate(workDate) {
     return records.find((record) => record.workDate === workDate) || null;
+  }
+
+  function recalculateTodayForCurrentBreaks() {
+    const today = toYmd(new Date());
+    const record = getRecordForDate(today);
+    if (!record || !canEditWorkDate(today)) {
+      return null;
+    }
+
+    const clockOut = new Date(record.clockOutAt);
+    if (Number.isNaN(clockOut.getTime())) {
+      return null;
+    }
+
+    const legacyMinutes = calculateStandardOvertimeMinutes(today, clockOut, LEGACY_BREAKS);
+    const currentMinutes = calculateStandardOvertimeMinutes(today, clockOut, BREAKS);
+    if (currentMinutes === legacyMinutes || record.overtimeMinutes !== legacyMinutes) {
+      return null;
+    }
+
+    const nextRecord = {
+      ...record,
+      overtimeMinutes: currentMinutes,
+      updatedAt: new Date().toISOString(),
+    };
+    records = records.map((item) => item.workDate === today ? nextRecord : item);
+    persistRecords();
+    return nextRecord;
   }
 
   function setStatus(message) {
@@ -1303,12 +1345,18 @@
     earlyStarts = loadEarlyStarts();
     persistEarlyStarts();
     records = loadRecords();
-    persistRecords();
+    const recalculatedRecord = recalculateTodayForCurrentBreaks();
+    if (!recalculatedRecord) {
+      persistRecords();
+    }
     setDefaultFormNow();
     periodStart = clampPeriodStart(getPeriodForDate(elements.workDate.value).start);
     initViewHistory();
     wireEvents();
     render();
+    if (recalculatedRecord) {
+      setStatus(`${formatDateWithWeekday(recalculatedRecord.workDate)}を新しい休憩時間で${formatMinutes(recalculatedRecord.overtimeMinutes)}に更新しました。`);
+    }
     initCloud();
   }
 
