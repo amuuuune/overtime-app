@@ -67,6 +67,59 @@ input:focus-visible {
   background: var(--surface);
 }
 
+.quick-clock-out-view {
+  display: grid;
+  align-content: center;
+  justify-items: center;
+  gap: var(--tight-gap);
+  min-height: 100vh;
+  padding: max(28px, env(safe-area-inset-top)) 24px max(28px, env(safe-area-inset-bottom));
+  text-align: center;
+}
+
+.quick-clock-out-mark {
+  display: grid;
+  place-items: center;
+  width: 68px;
+  height: 68px;
+  margin-bottom: var(--tight-gap);
+  border-radius: 50%;
+  background: var(--surface-strong);
+  color: var(--accent);
+  font-size: 2rem;
+  font-weight: 900;
+}
+
+.quick-clock-out-view.is-pending .quick-clock-out-mark {
+  color: var(--muted);
+}
+
+.quick-clock-out-view.is-cancelled .quick-clock-out-mark {
+  background: #f3f5f7;
+  color: var(--muted);
+}
+
+.quick-clock-out-summary {
+  margin: 4px 0 0;
+  color: var(--ink);
+  font-size: 1.05rem;
+  font-weight: 800;
+}
+
+.quick-clock-out-note {
+  max-width: 34rem;
+  margin-top: var(--caption-gap);
+}
+
+.quick-clock-out-link {
+  display: grid;
+  place-items: center;
+  min-width: 12rem;
+  margin-top: var(--section-gap);
+  color: var(--ink);
+  text-decoration: none;
+}
+
 .topbar,
 .cloud-panel,
 .action-panel,

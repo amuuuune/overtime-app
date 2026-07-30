@@ -7,8 +7,9 @@
   const SUPABASE_URL = "https://amijlzfjamcstxchwkud.supabase.co";
   const SUPABASE_PUBLISHABLE_KEY = "sb_publishable_oHGPXeQxwEjeK7HlF9gDZQ_HA39G8y0";
   const CLOUD_TABLE = "overtime_records";
-  const APP_VERSION = "v33";
+  const APP_VERSION = "v34";
   const VIEW_HISTORY_APP = "overtime-app";
+  const QUICK_CLOCK_OUT_ACTION = "clockout";
   const RETAINED_PERIODS = 12;
   const EDITABLE_PERIODS = 2;
   const NIGHT_WORK_WARNING_CUTOFF_HOUR = 5;
@@ -40,6 +41,7 @@
   let currentUser = null;
   let cloudBusy = false;
   let authFormOpen = false;
+  let quickClockOutHandled = false;
   let elements = null;
 
   function pad2(value) {
@@ -1158,14 +1160,13 @@
     }
   }
 
-  async function handleClockOutNow() {
-    const now = truncateToMinute(new Date());
+  async function saveClockOutAt(now) {
     const isOvernightWork = shouldTreatAsOvernightWork(formatInputTime(now));
     const workDate = isOvernightWork ? toYmd(addDays(now, -1)) : getSuggestedWorkDate(now);
     const overtimeOptions = getSpecialOptions(workDate);
     if (elements.earlyWork.checked && !overtimeOptions.earlyStartTime && !overtimeOptions.holidayWork) {
       setStatus("早出は先に出勤打刻してください。");
-      return;
+      return null;
     }
     const clockOut = now;
 
@@ -1173,7 +1174,67 @@
     if (saved) {
       setFormFromClockOut(workDate, clockOut);
       resetSpecialOptions();
+      return getRecordForDate(workDate);
     }
+    return null;
+  }
+
+  async function handleClockOutNow() {
+    return saveClockOutAt(truncateToMinute(new Date()));
+  }
+
+  function isQuickClockOutLaunch() {
+    return new URL(window.location.href).searchParams.get("action") === QUICK_CLOCK_OUT_ACTION;
+  }
+
+  function clearQuickClockOutUrl() {
+    const url = new URL(window.location.href);
+    url.searchParams.delete("action");
+    const nextUrl = `${url.pathname}${url.search}${url.hash}`;
+    window.history.replaceState(
+      getViewHistoryState("home", { scrollY: 0 }),
+      "",
+      nextUrl
+    );
+  }
+
+  function showQuickClockOutResult(record) {
+    elements.quickClockOutView.classList.remove("is-pending");
+    if (!record) {
+      elements.quickClockOutView.classList.add("is-cancelled");
+      elements.quickClockOutMark.textContent = "–";
+      elements.quickClockOutHeading.textContent = "打刻しませんでした";
+      elements.quickClockOutSummary.textContent = elements.statusMessage.textContent || "退勤打刻は保存されていません。";
+      elements.quickClockOutNote.textContent = "必要な場合は「記録を見る」から打刻してください。";
+      return;
+    }
+
+    const clockOut = new Date(record.clockOutAt);
+    elements.quickClockOutView.classList.remove("is-cancelled");
+    elements.quickClockOutMark.textContent = "✓";
+    elements.quickClockOutHeading.textContent = `${formatInputTime(clockOut)} 退勤打刻済み`;
+    elements.quickClockOutSummary.textContent =
+      `${formatDateWithWeekday(record.workDate)}・残業 ${formatMinutes(record.overtimeMinutes)}`;
+    elements.quickClockOutNote.textContent = elements.statusMessage.textContent;
+  }
+
+  function beginQuickClockOutLaunch() {
+    elements.homeView.hidden = true;
+    elements.detailView.hidden = true;
+    elements.quickClockOutView.hidden = false;
+    elements.quickClockOutView.classList.add("is-pending");
+    window.scrollTo({ top: 0 });
+  }
+
+  async function handleQuickClockOutLaunch(clockOutAt) {
+    if (!clockOutAt || quickClockOutHandled) {
+      return;
+    }
+    quickClockOutHandled = true;
+
+    const record = await saveClockOutAt(clockOutAt);
+    showQuickClockOutResult(record);
+    clearQuickClockOutUrl();
   }
 
   async function handleManualSubmit(event) {
@@ -1298,8 +1359,13 @@
     });
   }
 
-  function init() {
+  async function init() {
     elements = {
+      quickClockOutView: document.getElementById("quickClockOutView"),
+      quickClockOutMark: document.getElementById("quickClockOutMark"),
+      quickClockOutHeading: document.getElementById("quickClockOutHeading"),
+      quickClockOutSummary: document.getElementById("quickClockOutSummary"),
+      quickClockOutNote: document.getElementById("quickClockOutNote"),
       homeView: document.getElementById("homeView"),
       detailView: document.getElementById("detailView"),
       cloudState: document.getElementById("cloudState"),
@@ -1345,6 +1411,9 @@
     earlyStarts = loadEarlyStarts();
     persistEarlyStarts();
     records = loadRecords();
+    const quickClockOutAt = isQuickClockOutLaunch()
+      ? truncateToMinute(new Date())
+      : null;
     const recalculatedRecord = recalculateTodayForCurrentBreaks();
     if (!recalculatedRecord) {
       persistRecords();
@@ -1354,10 +1423,14 @@
     initViewHistory();
     wireEvents();
     render();
+    if (quickClockOutAt) {
+      beginQuickClockOutLaunch();
+    }
     if (recalculatedRecord) {
       setStatus(`${formatDateWithWeekday(recalculatedRecord.workDate)}を新しい休憩時間で${formatMinutes(recalculatedRecord.overtimeMinutes)}に更新しました。`);
     }
-    initCloud();
+    await initCloud();
+    await handleQuickClockOutLaunch(quickClockOutAt);
   }
 
   const testApi = {

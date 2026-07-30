@@ -5,13 +5,22 @@
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta name="theme-color" content="#f6f7f9">
     <title>残業管理ツール</title>
-    <link rel="stylesheet" href="styles.css?v=33">
+    <link rel="stylesheet" href="styles.css?v=34">
     <link rel="manifest" href="manifest.webmanifest">
     <link rel="icon" type="image/png" sizes="192x192" href="icons/icon-192.png">
     <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
   </head>
   <body>
     <main class="app-shell">
+      <section class="quick-clock-out-view" id="quickClockOutView" aria-labelledby="quickClockOutHeading" hidden>
+        <div class="quick-clock-out-mark" id="quickClockOutMark" aria-hidden="true">✓</div>
+        <p class="section-kicker">退勤打刻</p>
+        <h1 id="quickClockOutHeading">打刻しています</h1>
+        <p class="quick-clock-out-summary" id="quickClockOutSummary">現在時刻を確認しています。</p>
+        <p class="small-note quick-clock-out-note" id="quickClockOutNote"></p>
+        <a class="ghost-action quick-clock-out-link" href="./index.html">記録を見る</a>
+      </section>
+
       <div id="homeView">
         <header class="topbar">
           <h1>残業管理ツール</h1>
@@ -154,6 +163,6 @@
     </template>
 
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2" defer></script>
-    <script src="app.js?v=33" defer></script>
+    <script src="app.js?v=34" defer></script>
   </body>
 </html>
