@@ -1,13 +1,18 @@
-const CACHE_NAME = "overtime-app-v34";
+const CACHE_NAME = "overtime-app-v35";
 const APP_SHELL = [
   "./",
   "./index.html",
-  "./styles.css?v=34",
-  "./app.js?v=34",
+  "./styles.css?v=35",
+  "./app.js?v=35",
   "./manifest.webmanifest",
+  "./quick/",
+  "./quick/index.html",
+  "./quick/manifest.webmanifest",
   "./icons/icon-192.png",
   "./icons/icon-512.png",
   "./icons/apple-touch-icon.png",
+  "./icons/clock-out-192.png",
+  "./icons/clock-out-512.png",
 ];
 const NETWORK_FIRST_DESTINATIONS = new Set(["document", "style", "script", "worker"]);
 
@@ -47,9 +52,14 @@ self.addEventListener("fetch", (event) => {
           cache.put(event.request, copy);
         });
         return response;
-      }).catch(() =>
-        caches.match(event.request).then((cached) => cached || caches.match("./index.html"))
-      )
+      }).catch(() => caches.match(event.request).then((cached) => {
+        if (cached) {
+          return cached;
+        }
+        return requestUrl.pathname.includes("/quick/")
+          ? caches.match("./quick/index.html")
+          : caches.match("./index.html");
+      }))
     );
     return;
   }

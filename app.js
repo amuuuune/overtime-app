@@ -7,7 +7,7 @@
   const SUPABASE_URL = "https://amijlzfjamcstxchwkud.supabase.co";
   const SUPABASE_PUBLISHABLE_KEY = "sb_publishable_oHGPXeQxwEjeK7HlF9gDZQ_HA39G8y0";
   const CLOUD_TABLE = "overtime_records";
-  const APP_VERSION = "v34";
+  const APP_VERSION = "v35";
   const VIEW_HISTORY_APP = "overtime-app";
   const QUICK_CLOCK_OUT_ACTION = "clockout";
   const RETAINED_PERIODS = 12;
