@@ -1,0 +1,9 @@
+.tooling/
+.gradle/
+.secrets/
+android-clockout/.gradle/
+android-clockout/local.properties
+android-clockout/**/build/
+*.apk
+*.aab
+

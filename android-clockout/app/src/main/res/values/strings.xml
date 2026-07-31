@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">退勤</string>
+    <string name="setup_title">退勤アイコンの初期設定</string>
+    <string name="setup_intro">Supabaseで使っているメールアドレスを入力します。届いたメールのリンクを押すと連携完了です。</string>
+    <string name="email_hint">メールアドレス</string>
+    <string name="send_login_email">ログインメールを送る</string>
+    <string name="setup_note">連携後は、この「退勤」アイコンを押すだけで現在時刻をクラウド保存します。休日出勤や深夜退勤は、これまでどおり17+から打刻してください。</string>
+</resources>
