@@ -2,12 +2,13 @@
   "use strict";
 
   const STORAGE_KEY = "overtime-records-v1";
+  const RECOVERY_STORAGE_KEY = "overtime-records-recovery-v1";
   const EARLY_START_STORAGE_KEY = "overtime-early-starts-v1";
   const EARLY_START_METADATA_KEY = "pending_early_starts";
   const SUPABASE_URL = "https://amijlzfjamcstxchwkud.supabase.co";
   const SUPABASE_PUBLISHABLE_KEY = "sb_publishable_oHGPXeQxwEjeK7HlF9gDZQ_HA39G8y0";
   const CLOUD_TABLE = "overtime_records";
-  const APP_VERSION = "v36";
+  const APP_VERSION = "v37";
   const VIEW_HISTORY_APP = "overtime-app";
   const QUICK_CLOCK_OUT_ACTION = "clockout";
   const RETAINED_PERIODS = 12;
@@ -41,6 +42,9 @@
   let currentUser = null;
   let cloudBusy = false;
   let authFormOpen = false;
+  let authLinkFormOpen = false;
+  let passwordFormOpen = false;
+  let cloudSyncPromise = null;
   let quickClockOutHandled = false;
   let elements = null;
 
@@ -310,36 +314,69 @@
     return recordSet.filter((record) => record.workDate >= retentionStart && record.workDate <= retentionEnd);
   }
 
-  function loadRecords() {
+  function normalizeRecords(recordSet) {
+    if (!Array.isArray(recordSet)) {
+      return [];
+    }
+    return pruneRecordsByRetention(recordSet
+      .map((record) => {
+        if (!record || !/^\d{4}-\d{2}-\d{2}$/.test(String(record.workDate)) || !record.clockOutAt) {
+          return null;
+        }
+        const workDate = String(record.workDate);
+        const parsedWorkDate = parseYmd(workDate);
+        const clockOut = new Date(record.clockOutAt);
+        if (
+          Number.isNaN(parsedWorkDate.getTime()) ||
+          toYmd(parsedWorkDate) !== workDate ||
+          Number.isNaN(clockOut.getTime())
+        ) {
+          return null;
+        }
+        const updatedAt = new Date(record.updatedAt || record.clockOutAt);
+        return {
+          id: workDate,
+          workDate,
+          clockOutAt: clockOut.toISOString(),
+          overtimeMinutes: Number.isFinite(record.overtimeMinutes)
+            ? Math.max(0, Math.floor(record.overtimeMinutes))
+            : calculateOvertimeMinutes(workDate, clockOut),
+          updatedAt: Number.isNaN(updatedAt.getTime()) ? clockOut.toISOString() : updatedAt.toISOString(),
+        };
+      })
+      .filter(Boolean)
+      .sort((a, b) => a.workDate.localeCompare(b.workDate)));
+  }
+
+  function loadRecordSet(storageKey) {
     try {
-      const raw = window.localStorage.getItem(STORAGE_KEY);
-      const parsed = raw ? JSON.parse(raw) : [];
-      if (!Array.isArray(parsed)) {
-        return [];
-      }
-      return pruneRecordsByRetention(parsed
-        .filter((record) => record && record.workDate && record.clockOutAt)
-        .map((record) => {
-          const clockOut = new Date(record.clockOutAt);
-          return {
-            id: record.workDate,
-            workDate: record.workDate,
-            clockOutAt: clockOut.toISOString(),
-            overtimeMinutes: Number.isFinite(record.overtimeMinutes)
-              ? Math.max(0, Math.floor(record.overtimeMinutes))
-              : calculateOvertimeMinutes(record.workDate, clockOut),
-            updatedAt: record.updatedAt || clockOut.toISOString(),
-          };
-        })
-        .filter((record) => !Number.isNaN(new Date(record.clockOutAt).getTime()))
-        .sort((a, b) => a.workDate.localeCompare(b.workDate)));
+      const raw = window.localStorage.getItem(storageKey);
+      return normalizeRecords(raw ? JSON.parse(raw) : []);
     } catch (error) {
       return [];
     }
   }
 
+  function loadRecords() {
+    return loadRecordSet(STORAGE_KEY);
+  }
+
   function persistRecords() {
     window.localStorage.setItem(STORAGE_KEY, JSON.stringify(records));
+  }
+
+  function persistRecoverySnapshot(recordSet = records) {
+    try {
+      const snapshot = normalizeRecords(recordSet);
+      if (snapshot.length === 0) {
+        return;
+      }
+      const previous = loadRecordSet(RECOVERY_STORAGE_KEY);
+      const recoveryRecords = mergeRecordsByDate(previous, snapshot);
+      window.localStorage.setItem(RECOVERY_STORAGE_KEY, JSON.stringify(recoveryRecords));
+    } catch (error) {
+      // The primary record store remains available if the recovery copy cannot be written.
+    }
   }
 
   function normalizeEarlyStarts(source) {
@@ -456,9 +493,12 @@
       return;
     }
     elements.toggleAuth.disabled = cloudBusy;
-    elements.authSubmit.disabled = cloudBusy;
+    elements.authEmailSubmit.disabled = cloudBusy;
+    elements.authPasswordSubmit.disabled = cloudBusy;
     elements.authLinkSubmit.disabled = cloudBusy;
     elements.syncCloud.disabled = cloudBusy;
+    elements.togglePassword.disabled = cloudBusy;
+    elements.passwordSubmit.disabled = cloudBusy;
     elements.signOut.disabled = cloudBusy;
   }
 
@@ -468,10 +508,13 @@
     }
     const signedIn = isCloudSignedIn();
     elements.authForm.hidden = signedIn || !supabaseClient || !authFormOpen;
-    elements.authLinkForm.hidden = signedIn || !supabaseClient || !authFormOpen;
+    elements.authLinkForm.hidden = signedIn || !supabaseClient || !authFormOpen || !authLinkFormOpen;
+    elements.passwordForm.hidden = !signedIn || !passwordFormOpen;
     elements.toggleAuth.hidden = signedIn;
     elements.toggleAuth.textContent = authFormOpen ? "閉じる" : "ログイン";
     elements.syncCloud.hidden = !signedIn;
+    elements.togglePassword.hidden = !signedIn;
+    elements.togglePassword.textContent = passwordFormOpen ? "閉じる" : "設定";
     elements.signOut.hidden = !signedIn;
     elements.cloudState.textContent = signedIn ? "クラウド" : "端末保存";
     if (signedIn && currentUser.email) {
@@ -565,11 +608,13 @@
     return true;
   }
 
-  async function syncCloudRecords(options = {}) {
+  async function performCloudSync(options = {}) {
     if (!isCloudSignedIn()) {
       renderCloudUi();
       return false;
     }
+    const localSnapshot = normalizeRecords(options.localSnapshot || records);
+    persistRecoverySnapshot(localSnapshot);
     if (!options.skipEarlyStartSync) {
       await syncEarlyStartsFromCloud();
     }
@@ -602,7 +647,7 @@
       const cloudRecords = (data || [])
         .map(fromCloudRecord)
         .filter((record) => !Number.isNaN(new Date(record.clockOutAt).getTime()));
-      records = pruneRecordsByRetention(mergeRecordsByDate(records, cloudRecords));
+      records = pruneRecordsByRetention(mergeRecordsByDate(localSnapshot, cloudRecords));
       const recalculatedRecord = recalculateTodayForCurrentBreaks();
       if (!recalculatedRecord) {
         persistRecords();
@@ -630,17 +675,33 @@
     }
   }
 
+  function syncCloudRecords(options = {}) {
+    if (cloudSyncPromise) {
+      return cloudSyncPromise;
+    }
+    cloudSyncPromise = performCloudSync(options).finally(() => {
+      cloudSyncPromise = null;
+    });
+    return cloudSyncPromise;
+  }
+
   async function applySession(session) {
+    const localSnapshot = normalizeRecords(records);
+    persistRecoverySnapshot(localSnapshot);
     currentUser = session && session.user ? session.user : null;
     if (!currentUser) {
       authFormOpen = false;
+      authLinkFormOpen = false;
+      passwordFormOpen = false;
       renderCloudUi();
       return;
     }
     authFormOpen = false;
+    authLinkFormOpen = false;
+    passwordFormOpen = false;
     renderCloudUi(`${currentUser.email || "ログイン中"} でログインしました。同期します。`);
     await syncEarlyStartsFromCloud();
-    await syncCloudRecords({ skipEarlyStartSync: true });
+    await syncCloudRecords({ skipEarlyStartSync: true, localSnapshot });
   }
 
   async function initCloud() {
@@ -862,6 +923,7 @@
     records = pruneRecordsByRetention(records);
     await clearEarlyStart(workDate);
     persistRecords();
+    persistRecoverySnapshot();
     periodStart = getPeriodForDate(workDate).start;
     render();
     setEditingMode("");
@@ -893,6 +955,7 @@
     if (!(await deleteRecordFromCloud(workDate))) {
       return false;
     }
+    persistRecoverySnapshot();
     records = records.filter((item) => item.workDate !== workDate);
     persistRecords();
     render();
@@ -1283,7 +1346,44 @@
     }
   }
 
-  async function handleAuthSubmit(event) {
+  async function handlePasswordSignIn(event) {
+    event.preventDefault();
+    if (!supabaseClient) {
+      renderCloudUi("Supabase機能を読み込めませんでした。再読み込みしてください。");
+      return;
+    }
+    const email = elements.authEmail.value.trim();
+    const password = elements.authPassword.value;
+    if (!email || password.length < 8) {
+      renderCloudUi("メールアドレスと8文字以上のパスワードを入力してください。");
+      return;
+    }
+
+    const localSnapshot = normalizeRecords(records);
+    persistRecoverySnapshot(localSnapshot);
+    setCloudBusy(true);
+    renderCloudUi("ログイン中です。端末記録は保護されています。");
+    try {
+      const { data, error } = await supabaseClient.auth.signInWithPassword({ email, password });
+      if (error || !data || !data.session) {
+        renderCloudUi(
+          error
+            ? `ログインできませんでした。メールアドレスかパスワードを確認してください。（${error.message}）`
+            : "ログイン情報を確認できませんでした。"
+        );
+        return;
+      }
+      elements.authPassword.value = "";
+      authFormOpen = false;
+      authLinkFormOpen = false;
+      renderCloudUi("ログインしました。端末記録をクラウドへ同期します。");
+      await applySession(data.session);
+    } finally {
+      setCloudBusy(false);
+    }
+  }
+
+  async function handleAuthEmailSubmit(event) {
     event.preventDefault();
     if (!supabaseClient) {
       renderCloudUi("Supabase機能を読み込めませんでした。再読み込みしてください。");
@@ -1307,13 +1407,51 @@
         },
       });
       if (!error) {
-        authFormOpen = false;
+        authFormOpen = true;
+        authLinkFormOpen = true;
       }
       renderCloudUi(
         error
           ? cloudErrorMessage("ログインメール送信", error)
           : "ログインメールを送りました。iPhoneではメール内のリンクを長押ししてコピーし、この画面へ戻ってください。"
       );
+    } finally {
+      setCloudBusy(false);
+    }
+  }
+
+  async function handlePasswordSetup(event) {
+    event.preventDefault();
+    if (!isCloudSignedIn()) {
+      renderCloudUi("先にクラウドへログインしてください。");
+      return;
+    }
+    const password = elements.newPassword.value;
+    const confirmation = elements.confirmPassword.value;
+    if (password.length < 8) {
+      renderCloudUi("パスワードは8文字以上にしてください。");
+      return;
+    }
+    if (password !== confirmation) {
+      renderCloudUi("再入力したパスワードが一致しません。");
+      return;
+    }
+
+    setCloudBusy(true);
+    renderCloudUi("パスワードを設定中です。");
+    try {
+      const { data, error } = await supabaseClient.auth.updateUser({ password });
+      if (error) {
+        renderCloudUi(`パスワードを設定できませんでした。（${error.message}）`);
+        return;
+      }
+      if (data && data.user) {
+        currentUser = data.user;
+      }
+      elements.newPassword.value = "";
+      elements.confirmPassword.value = "";
+      passwordFormOpen = false;
+      renderCloudUi("パスワードを設定しました。ホーム画面のアプリからログインできます。");
     } finally {
       setCloudBusy(false);
     }
@@ -1362,6 +1500,7 @@
 
       elements.authLink.value = "";
       authFormOpen = false;
+      authLinkFormOpen = false;
       renderCloudUi("ログインしました。端末保存の記録を同期します。");
       await applySession(data.session);
     } finally {
@@ -1382,6 +1521,8 @@
       }
       currentUser = null;
       authFormOpen = false;
+      authLinkFormOpen = false;
+      passwordFormOpen = false;
       renderCloudUi("ログアウトしました。未ログイン中はこの端末に保存します。");
     } finally {
       setCloudBusy(false);
@@ -1390,9 +1531,21 @@
 
   function toggleAuthForm() {
     authFormOpen = !authFormOpen;
-    renderCloudUi(authFormOpen ? "iPhoneではメールのリンクを長押ししてコピーし、この画面でログインします。" : "");
+    authLinkFormOpen = false;
+    passwordFormOpen = false;
+    renderCloudUi(authFormOpen ? "パスワードを設定済みなら、そのままログインできます。" : "");
     if (authFormOpen) {
       elements.authEmail.focus({ preventScroll: true });
+    }
+  }
+
+  function togglePasswordForm() {
+    passwordFormOpen = !passwordFormOpen;
+    authFormOpen = false;
+    authLinkFormOpen = false;
+    renderCloudUi(passwordFormOpen ? "ホーム画面アプリ用のパスワードを設定します。" : "");
+    if (passwordFormOpen) {
+      elements.newPassword.focus({ preventScroll: true });
     }
   }
 
@@ -1400,9 +1553,12 @@
     elements.clockOutNow.addEventListener("click", handleClockOutNow);
     elements.recordForm.addEventListener("submit", handleManualSubmit);
     elements.toggleAuth.addEventListener("click", toggleAuthForm);
-    elements.authForm.addEventListener("submit", handleAuthSubmit);
+    elements.authForm.addEventListener("submit", handlePasswordSignIn);
+    elements.authEmailSubmit.addEventListener("click", handleAuthEmailSubmit);
     elements.authLinkForm.addEventListener("submit", handleAuthLinkSubmit);
     elements.syncCloud.addEventListener("click", syncCloudRecords);
+    elements.togglePassword.addEventListener("click", togglePasswordForm);
+    elements.passwordForm.addEventListener("submit", handlePasswordSetup);
     elements.signOut.addEventListener("click", handleSignOut);
     elements.holidayWork.addEventListener("change", updateSpecialOptions);
     elements.earlyWork.addEventListener("change", updateSpecialOptions);
@@ -1448,11 +1604,18 @@
       toggleAuth: document.getElementById("toggleAuth"),
       authForm: document.getElementById("authForm"),
       authEmail: document.getElementById("authEmail"),
-      authSubmit: document.getElementById("authSubmit"),
+      authPassword: document.getElementById("authPassword"),
+      authPasswordSubmit: document.getElementById("authPasswordSubmit"),
+      authEmailSubmit: document.getElementById("authEmailSubmit"),
       authLinkForm: document.getElementById("authLinkForm"),
       authLink: document.getElementById("authLink"),
       authLinkSubmit: document.getElementById("authLinkSubmit"),
       syncCloud: document.getElementById("syncCloud"),
+      togglePassword: document.getElementById("togglePassword"),
+      passwordForm: document.getElementById("passwordForm"),
+      newPassword: document.getElementById("newPassword"),
+      confirmPassword: document.getElementById("confirmPassword"),
+      passwordSubmit: document.getElementById("passwordSubmit"),
       signOut: document.getElementById("signOut"),
       clockOutNow: document.getElementById("clockOutNow"),
       recordForm: document.getElementById("recordForm"),
@@ -1489,6 +1652,7 @@
     earlyStarts = loadEarlyStarts();
     persistEarlyStarts();
     records = loadRecords();
+    persistRecoverySnapshot();
     const quickClockOutAt = isQuickClockOutLaunch()
       ? truncateToMinute(new Date())
       : null;
@@ -1517,6 +1681,8 @@
     formatMinutes,
     getPeriodForDate,
     getSuggestedWorkDate,
+    mergeRecordsByDate,
+    normalizeRecords,
     parseAuthLink,
   };
 

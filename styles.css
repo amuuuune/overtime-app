@@ -228,7 +228,8 @@ h3 {
   gap: var(--field-gap);
 }
 
-.auth-link-form {
+.auth-link-form,
+.password-form {
   padding-top: var(--caption-gap);
   border-top: 1px solid var(--line);
 }

@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta name="theme-color" content="#f6f7f9">
     <title>残業管理ツール</title>
-    <link rel="stylesheet" href="styles.css?v=36">
+    <link rel="stylesheet" href="styles.css?v=37">
     <link rel="manifest" href="manifest.webmanifest">
     <link rel="icon" type="image/png" sizes="192x192" href="icons/icon-192.png">
     <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
@@ -32,6 +32,7 @@
             <span class="cloud-pill" id="cloudState">確認中</span>
             <button class="cloud-link" id="toggleAuth" type="button">ログイン</button>
             <button class="cloud-link" id="syncCloud" type="button" hidden>同期</button>
+            <button class="cloud-link" id="togglePassword" type="button" hidden>設定</button>
             <button class="cloud-link" id="signOut" type="button" hidden>ログアウト</button>
           </div>
           <form class="auth-form" id="authForm" hidden>
@@ -39,7 +40,12 @@
               <span>メールアドレス</span>
               <input id="authEmail" name="authEmail" type="email" autocomplete="email" inputmode="email" placeholder="mail@example.com" required>
             </label>
-            <button class="secondary-action" id="authSubmit" type="submit">ログインメールを送る</button>
+            <label>
+              <span>パスワード</span>
+              <input id="authPassword" name="authPassword" type="password" autocomplete="current-password" minlength="8" placeholder="8文字以上">
+            </label>
+            <button class="secondary-action" id="authPasswordSubmit" type="submit">パスワードでログイン</button>
+            <button class="ghost-action compact-action" id="authEmailSubmit" type="button">メールでログイン</button>
           </form>
           <form class="auth-form auth-link-form" id="authLinkForm" hidden>
             <label>
@@ -47,6 +53,18 @@
               <input id="authLink" name="authLink" type="url" inputmode="url" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="リンクを長押ししてコピー">
             </label>
             <button class="secondary-action" id="authLinkSubmit" type="submit">コピーしたリンクでログイン</button>
+          </form>
+          <form class="auth-form password-form" id="passwordForm" hidden>
+            <label>
+              <span>ホーム画面アプリ用パスワード</span>
+              <input id="newPassword" name="newPassword" type="password" autocomplete="new-password" minlength="8" placeholder="8文字以上" required>
+            </label>
+            <label>
+              <span>パスワードを再入力</span>
+              <input id="confirmPassword" name="confirmPassword" type="password" autocomplete="new-password" minlength="8" required>
+            </label>
+            <button class="secondary-action" id="passwordSubmit" type="submit">パスワードを設定</button>
+            <p class="small-note">設定後は、ホーム画面のアプリから同じメールアドレスとパスワードでログインできます。</p>
           </form>
           <p class="small-note cloud-message" id="cloudMessage" hidden>ログインするとSupabaseへ保存します。</p>
         </section>
@@ -169,7 +187,7 @@
       </button>
     </template>
 
-    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2" defer></script>
-    <script src="app.js?v=36" defer></script>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.112.3" defer></script>
+    <script src="app.js?v=37" defer></script>
   </body>
 </html>
