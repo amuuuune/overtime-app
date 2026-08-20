@@ -7,7 +7,7 @@
   const SUPABASE_URL = "https://amijlzfjamcstxchwkud.supabase.co";
   const SUPABASE_PUBLISHABLE_KEY = "sb_publishable_oHGPXeQxwEjeK7HlF9gDZQ_HA39G8y0";
   const CLOUD_TABLE = "overtime_records";
-  const APP_VERSION = "v35";
+  const APP_VERSION = "v36";
   const VIEW_HISTORY_APP = "overtime-app";
   const QUICK_CLOCK_OUT_ACTION = "clockout";
   const RETAINED_PERIODS = 12;
@@ -428,6 +428,28 @@
     return Array.from(byDate.values()).sort((a, b) => a.workDate.localeCompare(b.workDate));
   }
 
+  function parseAuthLink(value) {
+    let url;
+    try {
+      url = new URL(String(value || "").trim());
+    } catch (error) {
+      return null;
+    }
+
+    const expectedOrigin = new URL(SUPABASE_URL).origin;
+    const type = url.searchParams.get("type");
+    const tokenHash = url.searchParams.get("token_hash") || url.searchParams.get("token");
+    if (
+      url.origin !== expectedOrigin ||
+      url.pathname !== "/auth/v1/verify" ||
+      !tokenHash ||
+      (type !== "magiclink" && type !== "email")
+    ) {
+      return null;
+    }
+    return { tokenHash, type };
+  }
+
   function setCloudBusy(nextBusy) {
     cloudBusy = nextBusy;
     if (!elements) {
@@ -435,6 +457,7 @@
     }
     elements.toggleAuth.disabled = cloudBusy;
     elements.authSubmit.disabled = cloudBusy;
+    elements.authLinkSubmit.disabled = cloudBusy;
     elements.syncCloud.disabled = cloudBusy;
     elements.signOut.disabled = cloudBusy;
   }
@@ -445,6 +468,7 @@
     }
     const signedIn = isCloudSignedIn();
     elements.authForm.hidden = signedIn || !supabaseClient || !authFormOpen;
+    elements.authLinkForm.hidden = signedIn || !supabaseClient || !authFormOpen;
     elements.toggleAuth.hidden = signedIn;
     elements.toggleAuth.textContent = authFormOpen ? "閉じる" : "ログイン";
     elements.syncCloud.hidden = !signedIn;
@@ -1279,7 +1303,7 @@
         email,
         options: {
           emailRedirectTo: redirectTo,
-          shouldCreateUser: true,
+          shouldCreateUser: false,
         },
       });
       if (!error) {
@@ -1288,8 +1312,58 @@
       renderCloudUi(
         error
           ? cloudErrorMessage("ログインメール送信", error)
-          : "ログインメールを送りました。同じスマホでメール内のリンクを開いてください。"
+          : "ログインメールを送りました。iPhoneではメール内のリンクを長押ししてコピーし、この画面へ戻ってください。"
       );
+    } finally {
+      setCloudBusy(false);
+    }
+  }
+
+  async function handleAuthLinkSubmit(event) {
+    event.preventDefault();
+    if (!supabaseClient) {
+      renderCloudUi("Supabase機能を読み込めませんでした。再読み込みしてください。");
+      return;
+    }
+
+    let linkValue = elements.authLink.value.trim();
+    if (!linkValue && navigator.clipboard && navigator.clipboard.readText) {
+      try {
+        linkValue = (await navigator.clipboard.readText()).trim();
+      } catch (error) {
+        renderCloudUi("入力欄を長押しして、メール内のログインリンクを貼り付けてください。");
+        elements.authLink.focus({ preventScroll: true });
+        return;
+      }
+    }
+
+    const authLink = parseAuthLink(linkValue);
+    if (!authLink) {
+      renderCloudUi("Supabaseから届いた最新のログインリンクを貼り付けてください。");
+      elements.authLink.focus({ preventScroll: true });
+      return;
+    }
+
+    setCloudBusy(true);
+    renderCloudUi("ログインを確認中です。");
+    try {
+      const { data, error } = await supabaseClient.auth.verifyOtp({
+        token_hash: authLink.tokenHash,
+        type: authLink.type,
+      });
+      if (error || !data || !data.session) {
+        renderCloudUi(
+          error
+            ? cloudErrorMessage("ログイン", error)
+            : "ログイン情報を確認できませんでした。最新のメールでもう一度お試しください。"
+        );
+        return;
+      }
+
+      elements.authLink.value = "";
+      authFormOpen = false;
+      renderCloudUi("ログインしました。端末保存の記録を同期します。");
+      await applySession(data.session);
     } finally {
       setCloudBusy(false);
     }
@@ -1316,7 +1390,7 @@
 
   function toggleAuthForm() {
     authFormOpen = !authFormOpen;
-    renderCloudUi(authFormOpen ? "メールのリンクを同じスマホで開くとログインできます。" : "");
+    renderCloudUi(authFormOpen ? "iPhoneではメールのリンクを長押ししてコピーし、この画面でログインします。" : "");
     if (authFormOpen) {
       elements.authEmail.focus({ preventScroll: true });
     }
@@ -1327,6 +1401,7 @@
     elements.recordForm.addEventListener("submit", handleManualSubmit);
     elements.toggleAuth.addEventListener("click", toggleAuthForm);
     elements.authForm.addEventListener("submit", handleAuthSubmit);
+    elements.authLinkForm.addEventListener("submit", handleAuthLinkSubmit);
     elements.syncCloud.addEventListener("click", syncCloudRecords);
     elements.signOut.addEventListener("click", handleSignOut);
     elements.holidayWork.addEventListener("change", updateSpecialOptions);
@@ -1374,6 +1449,9 @@
       authForm: document.getElementById("authForm"),
       authEmail: document.getElementById("authEmail"),
       authSubmit: document.getElementById("authSubmit"),
+      authLinkForm: document.getElementById("authLinkForm"),
+      authLink: document.getElementById("authLink"),
+      authLinkSubmit: document.getElementById("authLinkSubmit"),
       syncCloud: document.getElementById("syncCloud"),
       signOut: document.getElementById("signOut"),
       clockOutNow: document.getElementById("clockOutNow"),
@@ -1439,6 +1517,7 @@
     formatMinutes,
     getPeriodForDate,
     getSuggestedWorkDate,
+    parseAuthLink,
   };
 
   if (typeof module !== "undefined" && module.exports) {

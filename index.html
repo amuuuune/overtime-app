@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta name="theme-color" content="#f6f7f9">
     <title>残業管理ツール</title>
-    <link rel="stylesheet" href="styles.css?v=35">
+    <link rel="stylesheet" href="styles.css?v=36">
     <link rel="manifest" href="manifest.webmanifest">
     <link rel="icon" type="image/png" sizes="192x192" href="icons/icon-192.png">
     <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
@@ -40,6 +40,13 @@
               <input id="authEmail" name="authEmail" type="email" autocomplete="email" inputmode="email" placeholder="mail@example.com" required>
             </label>
             <button class="secondary-action" id="authSubmit" type="submit">ログインメールを送る</button>
+          </form>
+          <form class="auth-form auth-link-form" id="authLinkForm" hidden>
+            <label>
+              <span>メール内のログインリンク</span>
+              <input id="authLink" name="authLink" type="url" inputmode="url" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="リンクを長押ししてコピー">
+            </label>
+            <button class="secondary-action" id="authLinkSubmit" type="submit">コピーしたリンクでログイン</button>
           </form>
           <p class="small-note cloud-message" id="cloudMessage" hidden>ログインするとSupabaseへ保存します。</p>
         </section>
@@ -163,6 +170,6 @@
     </template>
 
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2" defer></script>
-    <script src="app.js?v=35" defer></script>
+    <script src="app.js?v=36" defer></script>
   </body>
 </html>

@@ -228,6 +228,11 @@ h3 {
   gap: var(--field-gap);
 }
 
+.auth-link-form {
+  padding-top: var(--caption-gap);
+  border-top: 1px solid var(--line);
+}
+
 .auth-form label {
   display: grid;
   gap: var(--control-gap);
@@ -780,6 +785,10 @@ h3 {
   .auth-form {
     grid-template-columns: minmax(0, 1fr) auto;
     align-items: end;
+  }
+
+  .auth-link-form {
+    padding-top: var(--tight-gap);
   }
 
   .manual-form {
