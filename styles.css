@@ -234,6 +234,25 @@ h3 {
   border-top: 1px solid var(--line);
 }
 
+.password-state {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--tight-gap);
+  margin: 0;
+}
+
+.password-state strong {
+  color: var(--accent-pressed);
+  font-size: 0.9rem;
+}
+
+.password-state span {
+  color: var(--muted);
+  font-size: 0.78rem;
+  font-weight: 700;
+}
+
 .auth-form label {
   display: grid;
   gap: var(--control-gap);

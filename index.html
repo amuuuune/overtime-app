@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta name="theme-color" content="#f6f7f9">
     <title>残業管理ツール</title>
-    <link rel="stylesheet" href="styles.css?v=37">
+    <link rel="stylesheet" href="styles.css?v=38">
     <link rel="manifest" href="manifest.webmanifest">
     <link rel="icon" type="image/png" sizes="192x192" href="icons/icon-192.png">
     <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
@@ -50,21 +50,25 @@
           <form class="auth-form auth-link-form" id="authLinkForm" hidden>
             <label>
               <span>メール内のログインリンク</span>
-              <input id="authLink" name="authLink" type="url" inputmode="url" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="リンクを長押ししてコピー">
+              <input id="authLink" name="authLink" type="url" inputmode="url" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="ログインURLを貼り付け">
             </label>
             <button class="secondary-action" id="authLinkSubmit" type="submit">コピーしたリンクでログイン</button>
           </form>
           <form class="auth-form password-form" id="passwordForm" hidden>
+            <p class="password-state">
+              <strong>パスワード設定済み</strong>
+              <span>再設定は不要です</span>
+            </p>
+            <p class="small-note">現在のパスワードはそのまま使えます。変更する場合のみ、以下に新しいパスワードを入力してください。</p>
             <label>
-              <span>ホーム画面アプリ用パスワード</span>
+              <span>新しいパスワード</span>
               <input id="newPassword" name="newPassword" type="password" autocomplete="new-password" minlength="8" placeholder="8文字以上" required>
             </label>
             <label>
-              <span>パスワードを再入力</span>
+              <span>新しいパスワードを再入力</span>
               <input id="confirmPassword" name="confirmPassword" type="password" autocomplete="new-password" minlength="8" required>
             </label>
-            <button class="secondary-action" id="passwordSubmit" type="submit">パスワードを設定</button>
-            <p class="small-note">設定後は、ホーム画面のアプリから同じメールアドレスとパスワードでログインできます。</p>
+            <button class="secondary-action" id="passwordSubmit" type="submit">パスワードを変更</button>
           </form>
           <p class="small-note cloud-message" id="cloudMessage" hidden>ログインするとSupabaseへ保存します。</p>
         </section>
@@ -188,6 +192,6 @@
     </template>
 
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.112.3" defer></script>
-    <script src="app.js?v=37" defer></script>
+    <script src="app.js?v=38" defer></script>
   </body>
 </html>

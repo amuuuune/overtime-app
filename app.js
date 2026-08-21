@@ -8,7 +8,7 @@
   const SUPABASE_URL = "https://amijlzfjamcstxchwkud.supabase.co";
   const SUPABASE_PUBLISHABLE_KEY = "sb_publishable_oHGPXeQxwEjeK7HlF9gDZQ_HA39G8y0";
   const CLOUD_TABLE = "overtime_records";
-  const APP_VERSION = "v37";
+  const APP_VERSION = "v38";
   const VIEW_HISTORY_APP = "overtime-app";
   const QUICK_CLOCK_OUT_ACTION = "clockout";
   const RETAINED_PERIODS = 12;
@@ -1413,7 +1413,7 @@
       renderCloudUi(
         error
           ? cloudErrorMessage("ログインメール送信", error)
-          : "ログインメールを送りました。iPhoneではメール内のリンクを長押ししてコピーし、この画面へ戻ってください。"
+          : "ログインメールを送りました。ログインURLを開かずにコピーし、この画面へ貼り付けてください。"
       );
     } finally {
       setCloudBusy(false);
@@ -1438,11 +1438,11 @@
     }
 
     setCloudBusy(true);
-    renderCloudUi("パスワードを設定中です。");
+    renderCloudUi("パスワードを変更中です。");
     try {
       const { data, error } = await supabaseClient.auth.updateUser({ password });
       if (error) {
-        renderCloudUi(`パスワードを設定できませんでした。（${error.message}）`);
+        renderCloudUi(`パスワードを変更できませんでした。（${error.message}）`);
         return;
       }
       if (data && data.user) {
@@ -1451,7 +1451,7 @@
       elements.newPassword.value = "";
       elements.confirmPassword.value = "";
       passwordFormOpen = false;
-      renderCloudUi("パスワードを設定しました。ホーム画面のアプリからログインできます。");
+      renderCloudUi("パスワードを変更しました。次回から新しいパスワードでログインできます。");
     } finally {
       setCloudBusy(false);
     }
@@ -1543,7 +1543,7 @@
     passwordFormOpen = !passwordFormOpen;
     authFormOpen = false;
     authLinkFormOpen = false;
-    renderCloudUi(passwordFormOpen ? "ホーム画面アプリ用のパスワードを設定します。" : "");
+    renderCloudUi(passwordFormOpen ? "パスワードは設定済みです。変更しない場合は何もする必要はありません。" : "");
     if (passwordFormOpen) {
       elements.newPassword.focus({ preventScroll: true });
     }
