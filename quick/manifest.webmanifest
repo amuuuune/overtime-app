@@ -4,7 +4,7 @@
   "short_name": "退勤",
   "description": "ホーム画面から現在時刻で退勤打刻します",
   "start_url": "./index.html?launch=clockout",
-  "scope": "./",
+  "scope": "../",
   "display": "standalone",
   "background_color": "#ffffff",
   "theme_color": "#149653",

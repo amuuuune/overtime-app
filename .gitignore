@@ -6,4 +6,5 @@ android-clockout/local.properties
 android-clockout/**/build/
 *.apk
 *.aab
+backups/
 

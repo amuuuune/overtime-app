@@ -121,7 +121,7 @@ input:focus-visible {
 }
 
 .topbar,
-.cloud-panel,
+.storage-panel,
 .action-panel,
 .summary-panel,
 .records-panel {
@@ -176,27 +176,20 @@ h3 {
   color: var(--muted);
 }
 
-.cloud-panel {
+.storage-panel {
   display: grid;
   gap: var(--tight-gap);
   padding-block: 10px;
 }
 
-.cloud-compact-row {
+.storage-compact-row {
   display: flex;
   gap: var(--tight-gap);
   align-items: center;
   min-width: 0;
 }
 
-.cloud-label {
-  color: var(--muted);
-  font-size: 0.78rem;
-  font-weight: 800;
-  white-space: nowrap;
-}
-
-.cloud-pill {
+.storage-pill {
   margin-right: auto;
   border: 1px solid var(--line);
   border-radius: 8px;
@@ -208,7 +201,7 @@ h3 {
   white-space: nowrap;
 }
 
-.cloud-link {
+.storage-link {
   min-height: 32px;
   border: 1px solid var(--line);
   border-radius: 8px;
@@ -219,62 +212,8 @@ h3 {
   font-weight: 800;
 }
 
-.cloud-link + .cloud-link {
+.storage-link + .storage-link {
   margin-left: 0;
-}
-
-.auth-form {
-  display: grid;
-  gap: var(--field-gap);
-}
-
-.auth-link-form,
-.password-form {
-  padding-top: var(--caption-gap);
-  border-top: 1px solid var(--line);
-}
-
-.password-state {
-  display: flex;
-  align-items: baseline;
-  justify-content: space-between;
-  gap: var(--tight-gap);
-  margin: 0;
-}
-
-.password-state strong {
-  color: var(--accent-pressed);
-  font-size: 0.9rem;
-}
-
-.password-state span {
-  color: var(--muted);
-  font-size: 0.78rem;
-  font-weight: 700;
-}
-
-.auth-form label {
-  display: grid;
-  gap: var(--control-gap);
-  color: var(--muted);
-  font-size: 0.9rem;
-  font-weight: 700;
-}
-
-.auth-form input {
-  min-height: 48px;
-  width: 100%;
-  border: 1px solid var(--line);
-  border-radius: 8px;
-  background: #ffffff;
-  color: var(--ink);
-  padding: 9px 12px;
-  font-size: 1rem;
-  font-weight: 600;
-}
-
-.cloud-message {
-  margin-top: -2px;
 }
 
 .action-panel,
@@ -795,20 +734,11 @@ h3 {
 
 @media (min-width: 560px) {
   .topbar,
-  .cloud-panel,
+  .storage-panel,
   .action-panel,
   .summary-panel,
   .records-panel {
     padding-inline: 28px;
-  }
-
-  .auth-form {
-    grid-template-columns: minmax(0, 1fr) auto;
-    align-items: end;
-  }
-
-  .auth-link-form {
-    padding-top: var(--tight-gap);
   }
 
   .manual-form {

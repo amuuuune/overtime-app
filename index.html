@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta name="theme-color" content="#f6f7f9">
     <title>残業管理ツール</title>
-    <link rel="stylesheet" href="styles.css?v=38">
+    <link rel="stylesheet" href="styles.css?v=40">
     <link rel="manifest" href="manifest.webmanifest">
     <link rel="icon" type="image/png" sizes="192x192" href="icons/icon-192.png">
     <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
@@ -26,51 +26,15 @@
           <h1>残業管理ツール</h1>
         </header>
 
-        <section class="cloud-panel" aria-label="保存先">
-          <div class="cloud-compact-row">
-            <span class="cloud-label">保存先</span>
-            <span class="cloud-pill" id="cloudState">確認中</span>
-            <button class="cloud-link" id="toggleAuth" type="button">ログイン</button>
-            <button class="cloud-link" id="syncCloud" type="button" hidden>同期</button>
-            <button class="cloud-link" id="togglePassword" type="button" hidden>設定</button>
-            <button class="cloud-link" id="signOut" type="button" hidden>ログアウト</button>
+        <section class="storage-panel" aria-label="保存先とバックアップ">
+          <div class="storage-compact-row">
+            <span class="storage-pill">端末保存</span>
+            <button class="storage-link" id="exportBackup" type="button">バックアップ</button>
+            <button class="storage-link" id="importBackup" type="button">復元</button>
+            <input id="backupFile" type="file" accept="application/json,.json" hidden aria-label="復元するバックアップ">
           </div>
-          <form class="auth-form" id="authForm" hidden>
-            <label>
-              <span>メールアドレス</span>
-              <input id="authEmail" name="authEmail" type="email" autocomplete="email" inputmode="email" placeholder="mail@example.com" required>
-            </label>
-            <label>
-              <span>パスワード</span>
-              <input id="authPassword" name="authPassword" type="password" autocomplete="current-password" minlength="8" placeholder="8文字以上">
-            </label>
-            <button class="secondary-action" id="authPasswordSubmit" type="submit">パスワードでログイン</button>
-            <button class="ghost-action compact-action" id="authEmailSubmit" type="button">メールでログイン</button>
-          </form>
-          <form class="auth-form auth-link-form" id="authLinkForm" hidden>
-            <label>
-              <span>メール内のログインリンク</span>
-              <input id="authLink" name="authLink" type="url" inputmode="url" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="ログインURLを貼り付け">
-            </label>
-            <button class="secondary-action" id="authLinkSubmit" type="submit">コピーしたリンクでログイン</button>
-          </form>
-          <form class="auth-form password-form" id="passwordForm" hidden>
-            <p class="password-state">
-              <strong>パスワード設定済み</strong>
-              <span>再設定は不要です</span>
-            </p>
-            <p class="small-note">現在のパスワードはそのまま使えます。変更する場合のみ、以下に新しいパスワードを入力してください。</p>
-            <label>
-              <span>新しいパスワード</span>
-              <input id="newPassword" name="newPassword" type="password" autocomplete="new-password" minlength="8" placeholder="8文字以上" required>
-            </label>
-            <label>
-              <span>新しいパスワードを再入力</span>
-              <input id="confirmPassword" name="confirmPassword" type="password" autocomplete="new-password" minlength="8" required>
-            </label>
-            <button class="secondary-action" id="passwordSubmit" type="submit">パスワードを変更</button>
-          </form>
-          <p class="small-note cloud-message" id="cloudMessage" hidden>ログインするとSupabaseへ保存します。</p>
+          <p class="small-note">記録はこのアプリ内に保存します。打刻・集計・復元は同じホーム画面アプリから行ってください。</p>
+          <p class="small-note">機種変更やアプリ削除の前にバックアップしてください。</p>
         </section>
 
         <section class="summary-panel" aria-labelledby="summary-heading">
@@ -191,7 +155,6 @@
       </button>
     </template>
 
-    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.112.3" defer></script>
-    <script src="app.js?v=38" defer></script>
+    <script src="app.js?v=40" defer></script>
   </body>
 </html>

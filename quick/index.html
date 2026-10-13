@@ -121,6 +121,7 @@
       <img class="app-icon" src="../icons/clock-out-192.png" alt="">
       <h1>退勤ボタンを追加</h1>
       <p>ホーム画面から1回タップで現在時刻を打刻します。</p>
+      <p>集計・復元は、打刻後の「記録を見る」から同じアプリ内で行ってください。</p>
       <button id="installButton" type="button">ホーム画面に追加</button>
       <p class="status" id="installStatus" role="status" aria-live="polite">
         ボタンを押して追加してください。
@@ -152,7 +153,7 @@
         installButton.addEventListener("click", async () => {
           if (!installPrompt) {
             installStatus.textContent =
-              "Chrome右上のメニューから「アプリをインストール」または「ホーム画面に追加」を選んでください。";
+              "iPhoneではSafariの共有メニューから「ホーム画面に追加」を選んでください。AndroidではChromeのメニューから追加できます。";
             return;
           }
 
